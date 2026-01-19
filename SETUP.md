@@ -506,7 +506,7 @@ Enable detailed logging:
 import { useEffect } from 'react'
 
 useEffect(() => {
-  console.log('[v0] App mounted, initializing...')
+  console.log('App mounted, initializing...')
   // Your code here
 }, [])
 ```
