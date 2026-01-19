@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from socket_server import socketio
 
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -37,6 +38,8 @@ from routes.detection_routes import detection_bp
 from routes.logs_routes import logs_bp
 from routes.model_routes import model_bp
 from routes.training_routes import training_bp
+from routes.pipeline_routes import pipeline_bp
+
 
 # Register blueprints
 app.register_blueprint(scan_bp)
@@ -44,19 +47,21 @@ app.register_blueprint(detection_bp)
 app.register_blueprint(logs_bp)
 app.register_blueprint(model_bp)
 app.register_blueprint(training_bp)
+app.register_blueprint(pipeline_bp)
+
 
 from routes.phase2_routes import phase2_bp
 app.register_blueprint(phase2_bp)
 
-# Health check
 @app.route("/health", methods=["GET"])
 def health():
-    mongo_status = "connected" if db else "disconnected"
+    mongo_status = "connected" if db is not None else "disconnected"
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "mongodb": mongo_status
     }), 200
+
 
 # System info
 @app.route("/api/system/info", methods=["GET"])
