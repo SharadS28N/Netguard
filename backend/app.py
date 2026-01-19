@@ -88,7 +88,7 @@ if __name__ == "__main__":
     socketio.run(
         app,
         host=os.getenv("FLASK_HOST", "0.0.0.0"),
-        port=int(os.getenv("FLASK_PORT", 5000)),
+        port=int(os.getenv("FLASK_PORT", 5001)),
         debug=True,
         use_reloader=False
     )
