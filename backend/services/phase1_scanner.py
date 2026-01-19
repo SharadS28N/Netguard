@@ -178,7 +178,7 @@ class Phase1Scanner:
     # -------------------------
 
     def save_scan(self, data: Dict):
-        """
+        """+
         Save raw scan record to MongoDB.
 
         RULE:

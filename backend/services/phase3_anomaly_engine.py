@@ -42,7 +42,53 @@ class Phase3AnomalyEngine:
         4. Apply Layer 3 (ML Isolation Forest)
         5. Save all signals to anomaly_signals
         """
-        pass
+        print("[Phase 3] Starting Anomaly Detection Engine...")
+        
+        # Load all baselines
+        baselines = self.load_baselines()
+        
+        if not baselines:
+            print("[Phase 3] No baselines found. Nothing to analyze.")
+            return
+        
+        print(f"[Phase 3] Analyzing {len(baselines)} network baselines...")
+        
+        # Layer 3: Run ML Isolation Forest on all baselines
+        ml_results = self.run_isolation_forest(baselines)
+        
+        # Process each baseline
+        signals_to_save = []
+        
+        for baseline in baselines:
+            ssid = baseline.get("ssid")
+            bssid = baseline.get("bssid")
+            
+            if not ssid or not bssid:
+                continue
+            
+            # Layer 1: Signature Rules
+            signature_signals = self.apply_signature_rules(baseline)
+            signature_signals["ssid"] = ssid
+            signature_signals["bssid"] = bssid
+            signals_to_save.append(signature_signals)
+            
+            # Layer 2: Behavior Rules
+            behavior_signals = self.apply_behavior_rules(baseline)
+            behavior_signals["ssid"] = ssid
+            behavior_signals["bssid"] = bssid
+            signals_to_save.append(behavior_signals)
+            
+            # Layer 3: ML Results
+            ml_signal = ml_results.get((ssid, bssid))
+            if ml_signal:
+                ml_signal["ssid"] = ssid
+                ml_signal["bssid"] = bssid
+                signals_to_save.append(ml_signal)
+        
+        # Save all signals
+        self.save_anomaly_signals(signals_to_save)
+        
+        print(f"[Phase 3] Completed. {len(signals_to_save)} signals generated.")
 
     def load_baselines(self) -> List[Dict]:
         """
@@ -222,9 +268,18 @@ class Phase3AnomalyEngine:
 
 
 
-    def save_anomaly_signals(self, signals: Dict):
+    def save_anomaly_signals(self, signals: List[Dict]):
         """
         Save the combined output of all layers to `anomaly_signals`.
         New collection: anomaly_signals
         """
-        pass
+        if not signals:
+            return
+        
+        # Clear old signals (optional - or use timestamps to keep history)
+        # self.anomaly_collection.delete_many({})
+        
+        # Insert all new signals
+        self.anomaly_collection.insert_many(signals)
+        print(f"[Phase 3] Saved {len(signals)} signals to 'anomaly_signals' collection")
+
