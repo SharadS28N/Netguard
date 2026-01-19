@@ -1,16 +1,29 @@
-flask
-flask-cors
-pymongo
-python-dotenv
-numpy
-pandas
-scikit-learn
-flask-socketio
+# flask
+# flask-cors
+# pymongo
+# python-dotenv
+# numpy
+# pandas
+# scikit-learn
+# flask-socketio
 eventlet
 
 scapy
-requests
+# requests
 dnspython
 pydantic
 cryptography
-psutil
+# psutil
+Flask==3.0.0
+flask-cors==4.0.0
+flask-socketio==5.3.5
+python-socketio==5.10.0
+pymongo==4.6.1
+numpy==1.26.3
+pandas==2.1.4
+scikit-learn==1.3.2
+joblib==1.3.2
+python-dotenv==1.0.0
+psutil==5.9.7
+requests==2.31.0
+
