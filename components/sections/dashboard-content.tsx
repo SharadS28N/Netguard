@@ -1,58 +1,41 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
+import axios from 'axios'
+
 import ScanInterface from '@/components/dashboard/scan-interface'
 import DetectionResults from '@/components/dashboard/detection-results'
 import DetectionLogs from '@/components/dashboard/detection-logs'
 import ThreatStats from '@/components/dashboard/threat-stats'
-import { io, Socket } from 'socket.io-client'
 
 export default function DashboardContent() {
   const [activeTab, setActiveTab] = useState('scan')
-  const [scanResults, setScanResults] = useState(null)
+  const [scanResults, setScanResults] = useState<any>(null)
   const [isScanning, setIsScanning] = useState(false)
-  const [socketConnected, setSocketConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const backendUrl =
-      process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:5000'
+  const API_URL = 'http://localhost:500/api/pipeline/run'
 
-    const socket: Socket = io(backendUrl, {
-      transports: ['websocket'],
-    })
-
-    socket.on('connect', () => {
-      setSocketConnected(true)
-    })
-
-    socket.on('disconnect', () => {
-      setSocketConnected(false)
-    })
-
-    socket.on('scan_status', (payload: any) => {
-      if (payload?.status === 'completed') {
-        console.log('Scan completed via socket', payload)
-      }
-    })
-
-    socket.on('detection_result', (payload: any) => {
-      console.log('Detection result via socket', payload)
-    })
-
-    return () => {
-      socket.disconnect()
-    }
-  }, [])
-
-  const handleScanStart = () => {
+  /**
+   * Triggered when user clicks Start Scan
+   */
+  const handleScanStart = async () => {
     setIsScanning(true)
-  }
+    setError(null)
 
-  const handleScanComplete = (results: any) => {
-    setScanResults(results)
-    setIsScanning(false)
-    setActiveTab('results')
+    try {
+      const response = await axios.post(API_URL)
+
+      // assuming the API returns detection data directly
+      setScanResults(response.data)
+      setActiveTab('results')
+    } catch (err: any) {
+      console.error('Scan failed:', err)
+      setError('Failed to run detection pipeline')
+    } finally {
+      setIsScanning(false)
+    }
   }
 
   const tabs = [
@@ -75,9 +58,6 @@ export default function DashboardContent() {
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
           Real-time network scanning and threat analysis powered by AI/ML detection algorithms
-        </p>
-        <p className="text-xs mt-2 text-muted-foreground">
-          Backend link: {socketConnected ? 'Live via WebSocket' : 'Connecting...'}
         </p>
       </motion.div>
 
@@ -110,18 +90,27 @@ export default function DashboardContent() {
         {activeTab === 'scan' && (
           <ScanInterface
             onScanStart={handleScanStart}
-            onScanComplete={handleScanComplete}
+            onScanComplete={setScanResults}
             isScanning={isScanning}
-            autoScanIntervalSeconds={60}
           />
         )}
+
         {activeTab === 'results' && scanResults ? (
           <DetectionResults results={scanResults} />
         ) : activeTab === 'results' ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center">
-            <p className="text-muted-foreground">Run a scan to see detection results</p>
+            <p className="text-muted-foreground">
+              Run a scan to see detection results
+            </p>
           </div>
         ) : null}
+
+        {error && (
+          <div className="mt-4 text-sm text-red-500">
+            {error}
+          </div>
+        )}
+
         {activeTab === 'logs' && <DetectionLogs />}
         {activeTab === 'stats' && <ThreatStats />}
       </motion.div>
