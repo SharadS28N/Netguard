@@ -164,7 +164,7 @@ def main():
     
     # Success!
     print("=" * 80)
-    print(" PIPELINE COMPLETE!")
+    print("PIPELINE COMPLETE!")
     print("=" * 80)
     print()
     print("✅ ML models trained and saved")
