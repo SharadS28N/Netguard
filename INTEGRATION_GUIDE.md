@@ -264,7 +264,7 @@ export const features = {
 // Enable debug logging
 const DEBUG = process.env.DEBUG === 'true'
 
-if (DEBUG) console.log('[v0] ...message')
+if (DEBUG) console.log(' ...message')
 ```
 
 ### Testing

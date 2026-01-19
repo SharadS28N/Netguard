@@ -3,6 +3,7 @@ from services.ml_inference import MLInference
 from models.database import Database
 from datetime import datetime
 import uuid
+from socket_server import socketio
 
 detection_bp = Blueprint('detection', __name__, url_prefix='/api/detection')
 
@@ -53,7 +54,11 @@ def predict_threat():
             "model_info": engine.get_model_info()
         }
         db['detection_logs'].insert_one(detection_log)
-        
+        socketio.emit(
+            'detection_result',
+            detection_log,
+            broadcast=True
+        )
         return jsonify(predictions), 200
     
     except Exception as e:

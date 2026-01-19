@@ -3,32 +3,35 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from datetime import datetime
-from bson import ObjectId
+from socket_server import socketio
 
-# Load environment variables
 load_dotenv()
 
-# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+
+socketio.init_app(
+    app,
+    cors_allowed_origins="*"
+)
 
 # MongoDB connection
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
-MONGO_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
-MONGO_DB = os.getenv('MONGODB_DB', 'netguard')
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGO_DB = os.getenv("MONGODB_DB", "netguard")
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     db = client[MONGO_DB]
-    client.admin.command('ping')
+    client.admin.command("ping")
     print("Connected to MongoDB successfully")
 except ConnectionFailure:
     print("Failed to connect to MongoDB")
     db = None
 
-# Import routes
+# Import routes AFTER app + socketio init
 from routes.scan_routes import scan_bp
 from routes.detection_routes import detection_bp
 from routes.logs_routes import logs_bp
@@ -45,9 +48,9 @@ app.register_blueprint(training_bp)
 from routes.phase2_routes import phase2_bp
 app.register_blueprint(phase2_bp)
 
-@app.route('/health', methods=['GET'])
+# Health check
+@app.route("/health", methods=["GET"])
 def health():
-    """Health check endpoint"""
     mongo_status = "connected" if db else "disconnected"
     return jsonify({
         "status": "healthy",
@@ -55,17 +58,18 @@ def health():
         "mongodb": mongo_status
     }), 200
 
-@app.route('/api/system/info', methods=['GET'])
+# System info
+@app.route("/api/system/info", methods=["GET"])
 def system_info():
-    """Get system information"""
     import psutil
     return jsonify({
         "cpu_percent": psutil.cpu_percent(),
         "memory_percent": psutil.virtual_memory().percent,
-        "disk_percent": psutil.disk_usage('/').percent,
+        "disk_percent": psutil.disk_usage("/").percent,
         "timestamp": datetime.utcnow().isoformat()
     }), 200
 
+# Error handlers
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({"error": "Endpoint not found"}), 404
@@ -74,9 +78,12 @@ def not_found(error):
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
-if __name__ == '__main__':
-    app.run(
-        host=os.getenv('FLASK_HOST', '0.0.0.0'),
-        port=int(os.getenv('FLASK_PORT', 5000)),
-        debug=os.getenv('FLASK_DEBUG', True)
+# ✅ MUST use socketio.run (NOT app.run)
+if __name__ == "__main__":
+    socketio.run(
+        app,
+        host=os.getenv("FLASK_HOST", "0.0.0.0"),
+        port=int(os.getenv("FLASK_PORT", 5000)),
+        debug=True,
+        use_reloader=False
     )

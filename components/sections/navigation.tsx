@@ -9,23 +9,25 @@ export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
 
   const navItems = [
-    { label: 'Threat', href: '#threat' },
-    { label: 'Technology', href: '#technology' },
-    { label: 'How It Works', href: '#how' },
-    { label: 'Documentation', href: '#docs' },
+    { label: 'Threat', href: '/#threat' },
+    { label: 'Technology', href: '/#technology' },
+    { label: 'How It Works', href: '/#how' },
+    { label: 'Documentation', href: '/#docs' },
   ]
 
   return (
     <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-xl font-light tracking-widest"
-        >
-          NETGUARD
-        </motion.div>
+        <Link href="/" passHref>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+            className="text-xl font-light tracking-widest cursor-pointer"
+          >
+            NETGUARD
+          </motion.div>
+        </Link>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-6">

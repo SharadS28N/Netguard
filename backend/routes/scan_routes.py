@@ -4,6 +4,7 @@ from models.database import Database
 from datetime import datetime
 import threading
 import uuid
+from socket_server import socketio
 
 scan_bp = Blueprint('scan', __name__, url_prefix='/api/scan')
 
@@ -62,6 +63,18 @@ def start_scan():
             "threats_detected": 0
         }
         db['scans'].insert_one(scan_doc)
+        socketio.emit(
+            'scan_status',
+            {
+                "scan_id": scan_id,
+                "status": "in_progress",
+                "interface": interface,
+                "scan_type": scan_type,
+                "duration": duration,
+                "started_at": scan_doc["started_at"]
+            },
+            broadcast=True
+        )
         
         # Run scan in background thread
         def run_scan():
@@ -89,6 +102,17 @@ def start_scan():
                         "threats": threats
                     }}
                 )
+                socketio.emit(
+                    'scan_status',
+                    {
+                        "scan_id": scan_id,
+                        "status": "completed",
+                        "networks_found": len(results.get('networks', [])),
+                        "threats_detected": len(threats),
+                        "completed_at": datetime.utcnow().isoformat()
+                    },
+                    broadcast=True
+                )
                 
             except Exception as e:
                 print(f"Scan error: {e}")
@@ -99,6 +123,16 @@ def start_scan():
                         "error": str(e),
                         "completed_at": datetime.utcnow().isoformat()
                     }}
+                )
+                socketio.emit(
+                    'scan_status',
+                    {
+                        "scan_id": scan_id,
+                        "status": "failed",
+                        "error": str(e),
+                        "completed_at": datetime.utcnow().isoformat()
+                    },
+                    broadcast=True
                 )
         
         scan_thread = threading.Thread(target=run_scan, daemon=True)

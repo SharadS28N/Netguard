@@ -11,7 +11,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'NetGuard Nepal - Evil Twin Detection Platform',
   description: 'Enterprise-grade evil twin WiFi detection. Real-time threat identification and neutralization with AI-powered security.',
-  generator: 'v0.app',
   viewport: {
     width: 'device-width',
     initialScale: 1,

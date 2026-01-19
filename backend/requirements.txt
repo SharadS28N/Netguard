@@ -5,6 +5,8 @@ python-dotenv
 numpy
 pandas
 scikit-learn
+flask-socketio
+eventlet
 
 scapy
 requests

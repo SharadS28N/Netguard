@@ -6,11 +6,44 @@ import ScanInterface from '@/components/dashboard/scan-interface'
 import DetectionResults from '@/components/dashboard/detection-results'
 import DetectionLogs from '@/components/dashboard/detection-logs'
 import ThreatStats from '@/components/dashboard/threat-stats'
+import { io, Socket } from 'socket.io-client'
 
 export default function DashboardContent() {
   const [activeTab, setActiveTab] = useState('scan')
   const [scanResults, setScanResults] = useState(null)
   const [isScanning, setIsScanning] = useState(false)
+  const [socketConnected, setSocketConnected] = useState(false)
+
+  useEffect(() => {
+    const backendUrl =
+      process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:5000'
+
+    const socket: Socket = io(backendUrl, {
+      transports: ['websocket'],
+    })
+
+    socket.on('connect', () => {
+      setSocketConnected(true)
+    })
+
+    socket.on('disconnect', () => {
+      setSocketConnected(false)
+    })
+
+    socket.on('scan_status', (payload: any) => {
+      if (payload?.status === 'completed') {
+        console.log('Scan completed via socket', payload)
+      }
+    })
+
+    socket.on('detection_result', (payload: any) => {
+      console.log('Detection result via socket', payload)
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
 
   const handleScanStart = () => {
     setIsScanning(true)
@@ -42,6 +75,9 @@ export default function DashboardContent() {
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
           Real-time network scanning and threat analysis powered by AI/ML detection algorithms
+        </p>
+        <p className="text-xs mt-2 text-muted-foreground">
+          Backend link: {socketConnected ? 'Live via WebSocket' : 'Connecting...'}
         </p>
       </motion.div>
 

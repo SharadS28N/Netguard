@@ -96,7 +96,7 @@ export default function Hero() {
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          className="relative mt-12"
         >
           <div className="flex flex-col items-center gap-2">
             <p className="text-xs font-light tracking-widest text-muted-foreground">SCROLL</p>
