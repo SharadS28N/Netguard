@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 from datetime import datetime
 from bson import ObjectId
+from socket_server import socketio
 
 # Load environment variables
 load_dotenv()
@@ -11,6 +12,7 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+socketio.init_app(app, cors_allowed_origins="*")
 
 # MongoDB connection
 from pymongo import MongoClient
@@ -72,7 +74,8 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.run(
+    socketio.run(
+        app,
         host=os.getenv('FLASK_HOST', '0.0.0.0'),
         port=int(os.getenv('FLASK_PORT', 5000)),
         debug=os.getenv('FLASK_DEBUG', True)
