@@ -9,10 +9,10 @@ export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
 
   const navItems = [
-    { label: 'Threat', href: '#threat' },
-    { label: 'Technology', href: '#technology' },
-    { label: 'How It Works', href: '#how' },
-    { label: 'Documentation', href: '#docs' },
+    { label: 'Threat', href: '/#threat' },
+    { label: 'Technology', href: '/#technology' },
+    { label: 'How It Works', href: '/#how' },
+    { label: 'Documentation', href: '/#docs' },
   ]
 
   return (
