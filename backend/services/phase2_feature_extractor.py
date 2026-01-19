@@ -49,8 +49,15 @@ class Phase2FeatureExtractor:
         scans = self.load_raw_scans()
         grouped = self.process_data(scans)
 
+        # Pre-calculate SSID reuse counts (how many BSSIDs per SSID)
+        ssid_counts = defaultdict(int)
+        for (ssid, bssid) in grouped.keys():
+            ssid_counts[ssid] += 1
+
         for key, observations in grouped.items():
-            features = self.calculate_features(observations)
+            ssid = key[0]
+            count = ssid_counts[ssid]
+            features = self.calculate_features(observations, ssid_bssid_count=count)
             self.save_features(features)
 
     # -------------------------
@@ -91,7 +98,7 @@ class Phase2FeatureExtractor:
     # Feature calculation
     # -------------------------
 
-    def calculate_features(self, observations: List[Dict]) -> Dict:
+    def calculate_features(self, observations: List[Dict], ssid_bssid_count: int = 1) -> Dict:
         """
         Calculate aggregated behavioral features for a single (ssid, bssid).
         """
@@ -99,11 +106,13 @@ class Phase2FeatureExtractor:
         ssid = observations[0].get("ssid")
         bssid = observations[0].get("bssid")
 
-        # Collect numeric fields
+        # Collect numeric fields and categories
         signals = []
         channels = []
         client_counts = []
         timestamps = []
+        encryptions = []
+        authentications = []
 
         for obs in observations:
             if "signal" in obs:
@@ -126,6 +135,12 @@ class Phase2FeatureExtractor:
 
             if "timestamp" in obs:
                 timestamps.append(obs["timestamp"])
+            
+            if "encryption" in obs:
+                encryptions.append(obs["encryption"])
+                
+            if "authentication" in obs:
+                authentications.append(obs["authentication"])
 
         features = {
             "ssid": ssid,
@@ -142,6 +157,12 @@ class Phase2FeatureExtractor:
             # Client statistics
             "client_count_avg": np.mean(client_counts) if client_counts else None,
             "client_count_max": max(client_counts) if client_counts else None,
+
+            # Security & Vendor
+            "encryption": self._mode(encryptions),
+            "authentication": self._mode(authentications),
+            "vendor_oui": bssid[:8].upper() if bssid else None,
+            "ssid_bssid_count": ssid_bssid_count,
 
             # Time statistics
             "first_seen": min(timestamps) if timestamps else None,
@@ -189,7 +210,7 @@ class Phase2FeatureExtractor:
         return int("".join(filter(str.isdigit, value)))
 
     @staticmethod
-    def _mode(values: List[int]):
+    def _mode(values: List):
         """
         Return the most common value in a list.
         """
