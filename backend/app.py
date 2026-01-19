@@ -42,6 +42,9 @@ app.register_blueprint(logs_bp)
 app.register_blueprint(model_bp)
 app.register_blueprint(training_bp)
 
+from routes.phase2_routes import phase2_bp
+app.register_blueprint(phase2_bp)
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""

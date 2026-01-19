@@ -77,6 +77,18 @@ class MLTrainer:
             
             features.append(feature)
             labels.append(label)
+
+        # Ensure we have at least one sample of each class to prevent sklearn errors
+        if num_samples >= 10:
+            # Force last 5 samples to be Evil Twin
+            for i in range(1, 6):
+                labels[-i] = 1
+                features[-i] = [-60, 20, 0, 0.0, 1.0, 1.0, 0, 1.0] # Suspicious features
+            
+            # Force 5 samples before that to be Legitimate
+            for i in range(6, 11):
+                labels[-i] = 0
+                features[-i] = [-50, 0, 3, 1.0, 0.0, 0.0, 10, 0.0] # Legitimate features
         
         return np.array(features), np.array(labels)
 

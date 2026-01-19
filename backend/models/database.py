@@ -85,6 +85,18 @@ class Database:
             db['training_data'].create_index('label')
             print("Created 'training_data' collection")
 
+        # Phase 1: Raw Scans collection
+        if 'raw_scans' not in db.list_collection_names():
+            db.create_collection('raw_scans')
+            db['raw_scans'].create_index('timestamp')
+            print("Created 'raw_scans' collection")
+
+        # Phase 2: Features Baseline collection
+        if 'features_baseline' not in db.list_collection_names():
+            db.create_collection('features_baseline')
+            db['features_baseline'].create_index([('ssid', 1), ('bssid', 1)], unique=True)
+            print("Created 'features_baseline' collection")
+
 # Schema definitions
 NETWORK_SCHEMA = {
     "bssid": str,  # MAC address
