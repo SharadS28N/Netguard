@@ -16,6 +16,8 @@ STRICT RULES:
 """
 
 from typing import Dict, List, Optional
+import numpy as np
+from sklearn.ensemble import IsolationForest
 from models.database import Database
 
 class Phase3AnomalyEngine:
@@ -27,7 +29,9 @@ class Phase3AnomalyEngine:
         """
         Initialize database connections and models.
         """
-        pass
+        self.db = Database.get_db()
+        self.features_collection = self.db["features_baseline"]
+        self.anomaly_collection = self.db["anomaly_signals"]
 
     def run(self):
         """
@@ -44,7 +48,75 @@ class Phase3AnomalyEngine:
         """
         Fetch all behavioral profiles from features_baseline.
         """
-        pass
+        return list(self.features_collection.find({}))
+
+    def run_isolation_forest(self, baselines: List[Dict]) -> Dict[str, Dict]:
+        """
+        Layer 3: Unsupervised ML Anomaly Detection.
+        - Train Isolation Forest on current baselines
+        - Return anomaly scores for each (ssid, bssid)
+        """
+        if not baselines:
+            return {}
+
+        # 1. Prepare Feature Matrix
+        # Features: [avg_signal, signal_variance, channel_variance, client_count_avg, client_count_max, observation_count]
+        feature_matrix = []
+        keys = [] # To map back to (ssid, bssid)
+
+        for doc in baselines:
+            # Safely extract numeric features, defaulting to 0 or appropriate neutral value if missing
+            features = [
+                doc.get("avg_signal", -100),           # Default weak signal
+                doc.get("signal_variance", 0),
+                doc.get("channel_variance", 0),
+                doc.get("client_count_avg", 0),
+                doc.get("client_count_max", 0),
+                doc.get("observation_count", 0)
+            ]
+            
+            # Handle possible None values explicitly
+            features = [f if f is not None else 0 for f in features]
+            
+            feature_matrix.append(features)
+            keys.append((doc.get("ssid"), doc.get("bssid")))
+
+        if not feature_matrix:
+            return {}
+
+        X = np.array(feature_matrix)
+
+        # 2. Train Isolation Forest
+        # contamination='auto' allows the model to determine the threshold
+        # random_state for reproducibility
+        iso_forest = IsolationForest(contamination='auto', random_state=42, n_jobs=-1)
+        iso_forest.fit(X)
+
+        # 3. Predict & Score
+        # decision_function: lower = more abnormal. Negative values are outliers.
+        scan_scores = iso_forest.decision_function(X)
+        # predict: -1 for identifiers, 1 for inliers. We use the score for granularity.
+        predictions = iso_forest.predict(X)
+
+        results = {}
+        for idx, key in enumerate(keys):
+            ssid, bssid = key
+            # Construct a unique string key for the dictionary mapping, or use tuple if caller expects it
+            # The prompt asks for mapping { (ssid, bssid): ... } but mostly usually we key by string in JSON 
+            # or tuple in internal logic. The prompt skeleton returns Dict[str, float].
+            # But the prompt text says "Return mapping: { (ssid, bssid): ... }".
+            # I will use the logical key (ssid, bssid) as a tuple in the python dict.
+            
+            score = float(scan_scores[idx])
+            is_outlier = bool(predictions[idx] == -1)
+
+            results[(ssid, bssid)] = {
+                "layer": "ml",
+                "anomaly_score": score,
+                "is_outlier": is_outlier
+            }
+
+        return results
 
     def apply_signature_rules(self, baseline: Dict) -> Dict:
         """
@@ -111,16 +183,44 @@ class Phase3AnomalyEngine:
         Layer 2: Statistical deviations.
         - Signal variance spikes
         - Client count spikes
+        - Unstable presence
         """
-        pass
+        signals = {
+            "signal_variance_high": False,
+            "client_spike": False,
+            "unstable_presence": False
+        }
 
-    def run_isolation_forest(self, baselines: List[Dict]) -> Dict[str, float]:
-        """
-        Layer 3: Unsupervised ML Anomaly Detection.
-        - Train Isolation Forest on current baselines
-        - Return anomaly scores for each (ssid, bssid)
-        """
-        pass
+        # Constants (to be tuned later)
+        SIGNAL_VARIANCE_THRESHOLD = 15
+        MIN_OBSERVATIONS = 5
+
+        # 1. Signal Variance Spike
+        signal_variance = baseline.get("signal_variance")
+        if signal_variance is not None and signal_variance > SIGNAL_VARIANCE_THRESHOLD:
+            signals["signal_variance_high"] = True
+
+        # 2. Client Count Spike
+        client_avg = baseline.get("client_count_avg")
+        client_max = baseline.get("client_count_max")
+        
+        if client_avg is not None and client_max is not None:
+            # Guard against division by zero or low activity noise
+            if client_avg > 0:
+                if client_max > (client_avg * 2):
+                    signals["client_spike"] = True
+
+        # 3. Unstable Presence
+        observation_count = baseline.get("observation_count", 0)
+        if observation_count < MIN_OBSERVATIONS and signals["signal_variance_high"]:
+            signals["unstable_presence"] = True
+
+        return {
+            "layer": "behavior",
+            "signals": signals
+        }
+
+
 
     def save_anomaly_signals(self, signals: Dict):
         """
