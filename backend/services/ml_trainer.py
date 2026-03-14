@@ -19,11 +19,15 @@ from typing import Dict, Tuple
 import joblib
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import (accuracy_score, classification_report,
-                             confusion_matrix, f1_score, precision_score,
-                             recall_score)
-from sklearn.model_selection import (StratifiedKFold, cross_val_score,
-                                     train_test_split)
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+)
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger("netguard.ml_trainer")

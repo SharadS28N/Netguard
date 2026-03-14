@@ -15,9 +15,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.metrics import (auc, average_precision_score,
-                             classification_report, confusion_matrix,
-                             precision_recall_curve, roc_curve)
+from sklearn.metrics import (
+    auc,
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
 from sklearn.model_selection import cross_val_score
 
 # Set style
@@ -140,8 +145,12 @@ def plot_model_accuracy_comparison(models, X_test, y_test):
 
         y_pred = model.predict(X_test)
 
-        from sklearn.metrics import (accuracy_score, f1_score, precision_score,
-                                     recall_score)
+        from sklearn.metrics import (
+            accuracy_score,
+            f1_score,
+            precision_score,
+            recall_score,
+        )
 
         acc = accuracy_score(y_test, y_pred)
         prec = precision_score(y_test, y_pred)
@@ -634,8 +643,12 @@ def generate_summary_report(models, X_test, y_test):
 
         y_pred = model.predict(X_test)
 
-        from sklearn.metrics import (accuracy_score, f1_score, precision_score,
-                                     recall_score)
+        from sklearn.metrics import (
+            accuracy_score,
+            f1_score,
+            precision_score,
+            recall_score,
+        )
 
         report_data["models"][name] = {
             "accuracy": float(accuracy_score(y_test, y_pred)),

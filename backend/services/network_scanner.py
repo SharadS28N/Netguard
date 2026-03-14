@@ -10,8 +10,7 @@ from typing import Dict, List
 
 import scapy.all as scapy
 from scapy.arch import get_if_hwaddr, get_if_list
-from scapy.layers.dot11 import (Dot11, Dot11Beacon, Dot11ProbeReq,
-                                Dot11ProbeResp)
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11ProbeReq, Dot11ProbeResp
 
 
 class NetworkScanner:

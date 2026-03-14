@@ -12,8 +12,11 @@ from threading import Lock
 from typing import Optional
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
-from pymongo.errors import (ConnectionFailure, OperationFailure,
-                            ServerSelectionTimeoutError)
+from pymongo.errors import (
+    ConnectionFailure,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
 
 logger = logging.getLogger("netguard.database")
 
