@@ -1,11 +1,11 @@
 # backend/scripts/run_full_pipeline.py
 
 import time
+from services.phase4_decision_engine import Phase4DecisionEngine
 
 from services.phase1_scanner import Phase1Scanner
 from services.phase2_feature_extractor import Phase2FeatureExtractor
 from services.phase3_anomaly_engine import Phase3AnomalyEngine
-from services.phase4_decision_engine import Phase4DecisionEngine
 
 
 def main():

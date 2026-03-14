@@ -10,7 +10,6 @@ Data distributions based on:
 - Real-world AP behavior characteristics
 """
 
-import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -21,8 +20,6 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
-    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,

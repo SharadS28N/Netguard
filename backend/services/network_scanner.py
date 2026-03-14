@@ -1,5 +1,3 @@
-import platform
-import socket
 import struct
 import subprocess
 import sys
@@ -9,8 +7,8 @@ from datetime import datetime
 from typing import Dict, List
 
 import scapy.all as scapy
-from scapy.arch import get_if_hwaddr, get_if_list
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11ProbeReq, Dot11ProbeResp
+from scapy.arch import get_if_hwaddr
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt, Dot11ProbeReq
 
 
 class NetworkScanner:
@@ -121,7 +119,7 @@ class NetworkScanner:
                         elif elt.ID == 221 and elt.info.startswith(b"\x00\x50\xf2"):
                             return "WPA"
                 return "WEP"
-        except:
+        except Exception:
             pass
         return "Open"
 
@@ -164,7 +162,6 @@ class NetworkScanner:
             # Track clients (Data frames from stations)
             elif packet.haslayer(Dot11) and packet[Dot11].type == 2:
                 src = packet[Dot11].addr2
-                dst = packet[Dot11].addr1
                 bssid = packet[Dot11].addr3
 
                 if bssid not in self.clients:
@@ -188,10 +185,6 @@ class NetworkScanner:
 
         try:
             print(f"Starting scan on {interface} for {duration} seconds...")
-
-            # Use channel hopping if no specific channels given
-            if channels is None:
-                channels = list(range(1, 14))  # WiFi channels 1-13 (valid worldwide)
 
             # Simple passive scan without channel hopping
             scapy.sniff(
@@ -222,15 +215,13 @@ class NetworkScanner:
             print(f"Starting active scan on {interface} for {duration} seconds...")
 
             # Send probe requests
-            probe_req = (
-                scapy.Dot11(
-                    addr1="ff:ff:ff:ff:ff:ff",
-                    addr2=get_if_hwaddr(interface),
-                    addr3="ff:ff:ff:ff:ff:ff",
-                )
-                / Dot11ProbeReq()
-                / scapy.Dot11Elt(ID="SSID", info="")
+            probe_req = scapy.Dot11(
+                addr1="ff:ff:ff:ff:ff:ff",
+                addr2=get_if_hwaddr(interface),
+                addr3="ff:ff:ff:ff:ff:ff",
             )
+            probe_req = probe_req / Dot11ProbeReq()
+            probe_req = probe_req / scapy.Dot11Elt(ID="SSID", info="")
 
             def send_probes():
                 start_time = time.time()

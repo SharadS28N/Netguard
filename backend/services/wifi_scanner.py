@@ -168,12 +168,11 @@ class WiFiScanner:
                 "/System/Library/PrivateFrameworks/"
                 "Apple80211.framework/Resources/airport"
             )
-            if (
-                subprocess.run(
-                    ["test", "-f", airport_path], capture_output=True
-                ).returncode
-                == 0
-            ):
+            airport_check = subprocess.run(
+                ["test", "-f", airport_path], capture_output=True
+            )
+            airport_exists = airport_check.returncode == 0
+            if airport_exists:
                 return "airport"
 
         logger.warning("No WiFi scanning tool found for %s. Using mock data.", system)

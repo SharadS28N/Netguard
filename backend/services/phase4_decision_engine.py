@@ -16,7 +16,7 @@ Architecture:
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from models.database import Database
 
@@ -162,12 +162,11 @@ class Phase4DecisionEngine:
         ssid, bssid = network_key
 
         # Fetch baseline features for signal strength, etc.
-        features = (
-            self.features_collection.find_one(
-                {"ssid": ssid, "bssid": bssid}, {"_id": 0}
-            )
-            or {}
+        features = self.features_collection.find_one(
+            {"ssid": ssid, "bssid": bssid}, {"_id": 0}
         )
+        if features is None:
+            features = {}
 
         # Aggregate signals from all layers
         layer_scores = self.compute_layer_scores(signals)
@@ -251,10 +250,12 @@ class Phase4DecisionEngine:
         Returns:
             Float between 0.0 and 1.0
         """
-        confidence = (
-            layer_scores["signature"] * self.WEIGHTS["signature"]
-            + layer_scores["behavior"] * self.WEIGHTS["behavior"]
-            + layer_scores["ml"] * self.WEIGHTS["ml"]
+        confidence = sum(
+            [
+                layer_scores["signature"] * self.WEIGHTS["signature"],
+                layer_scores["behavior"] * self.WEIGHTS["behavior"],
+                layer_scores["ml"] * self.WEIGHTS["ml"],
+            ]
         )
 
         return min(max(confidence, 0.0), 1.0)  # Clamp to [0, 1]
@@ -368,4 +369,4 @@ class Phase4DecisionEngine:
         }
 
         self.detection_logs_collection.insert_one(summary)
-        print(f"[Phase 4] Logged summary to 'detection_logs' collection")
+        print("[Phase 4] Logged summary to 'detection_logs' collection")

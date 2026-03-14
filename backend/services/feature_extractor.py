@@ -4,7 +4,6 @@ Feature Extractor
 Extracts ML features from WiFi network data
 """
 
-from collections import Counter
 from typing import Dict, List
 
 import numpy as np

@@ -43,10 +43,12 @@ print("TEST 2: Weighted Confidence Computation")
 print("=" * 60)
 
 weights = {"signature": 0.4, "behavior": 0.3, "ml": 0.3}
-confidence = (
-    signature_score * weights["signature"]
-    + behavior_score * weights["behavior"]
-    + ml_score * weights["ml"]
+confidence = sum(
+    [
+        signature_score * weights["signature"],
+        behavior_score * weights["behavior"],
+        ml_score * weights["ml"],
+    ]
 )
 
 print(
@@ -58,7 +60,7 @@ print(
 print(f"       = {confidence:.4f}")
 
 expected_confidence = 0.2 + 0.2 + 0.3  # Approximately 0.7
-print(f"Expected: ~0.7000")
+print("Expected: ~0.7000")
 assert abs(confidence - 0.7) < 0.01
 print("✅ PASS\n")
 
@@ -153,8 +155,8 @@ print("✅ PASS\n")
 print("=" * 60)
 print("FINAL VERDICT")
 print("=" * 60)
-print(f"Network: FreeWiFi (aa:bb:cc:dd:ee:ff)")
-print(f"Layer Scores:")
+print("Network: FreeWiFi (aa:bb:cc:dd:ee:ff)")
+print("Layer Scores:")
 print(f"  - Signature: {signature_score:.4f}")
 print(f"  - Behavior: {behavior_score:.4f}")
 print(f"  - ML: {ml_score:.4f}")
