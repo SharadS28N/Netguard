@@ -15,7 +15,7 @@ STRICT RULES:
 - No blocking/alerting (Phase 4)
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 from models.database import Database
