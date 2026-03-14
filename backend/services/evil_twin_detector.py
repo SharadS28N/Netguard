@@ -210,6 +210,6 @@ if __name__ == "__main__":
     print(f"Threat level: {results['threat_level']}")
     print(f"Evil twins: {len(results['evil_twins_detected'])}")
     print(f"Suspicious: {len(results['suspicious_networks'])}")
-    print(f"\nRecommendations:")
+    print("\nRecommendations:")
     for rec in results["recommendations"]:
         print(f"  {rec}")
