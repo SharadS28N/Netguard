@@ -16,7 +16,7 @@ Architecture:
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from models.database import Database
 
@@ -368,4 +368,4 @@ class Phase4DecisionEngine:
         }
 
         self.detection_logs_collection.insert_one(summary)
-        print(f"[Phase 4] Logged summary to 'detection_logs' collection")
+        print("[Phase 4] Logged summary to 'detection_logs' collection")

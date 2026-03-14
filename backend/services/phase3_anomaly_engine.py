@@ -15,7 +15,7 @@ STRICT RULES:
 - No blocking/alerting (Phase 4)
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 from models.database import Database
@@ -108,7 +108,8 @@ class Phase3AnomalyEngine:
             return {}
 
         # 1. Prepare Feature Matrix
-        # Features: [avg_signal, signal_variance, channel_variance, client_count_avg, client_count_max, observation_count]
+        # Features: [avg_signal, signal_variance, channel_variance,
+        #            client_count_avg, client_count_max, observation_count]
         feature_matrix = []
         keys = []  # To map back to (ssid, bssid)
 

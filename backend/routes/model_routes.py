@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from models.database import Database
 from services.ml_inference import MLInference
 

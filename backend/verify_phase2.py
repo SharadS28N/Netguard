@@ -1,5 +1,3 @@
-import os
-
 from dotenv import load_dotenv
 from models.database import Database
 from services.phase2_feature_extractor import Phase2FeatureExtractor
