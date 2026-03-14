@@ -2,41 +2,41 @@ name: Netguard CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          python -m venv venv
-          source venv/bin/activate
+          python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
+          pip install flake8 black isort pytest
 
-      - name: Lint with flake8
+      - name: Format check with Black
         run: |
-          source venv/bin/activate
-          flake8 backend/
+          black --check backend
 
-      - name: Test with pytest
+      - name: Lint with Flake8
         run: |
-          source venv/bin/activate
-          pytest backend/tests/
+          flake8 backend --max-line-length=120 --ignore=W293,W291
+
+      - name: Run tests
+        run: |
+          pytest backend/tests
 
       - name: Build Docker image
         run: |
-          docker build -t netguard-backend -f backend/Dockerfile backend/
+          docker build -t netguard-backend -f backend/Dockerfile backend
