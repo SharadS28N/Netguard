@@ -1,8 +1,7 @@
-import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional
 
 import joblib
 import numpy as np
