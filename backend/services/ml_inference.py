@@ -1,62 +1,97 @@
 import numpy as np
 import joblib
 import os
-from typing import Dict, List, Tuple
-from datetime import datetime
+import logging
+from typing import Dict, List, Tuple, Optional
+from datetime import datetime, timezone
 import json
 
-class MLInference:
-    """ML Model inference engine for threat detection"""
+# Optional Hugging Face integration
+try:
+    from huggingface_hub import hf_hub_download
+    HAS_HF = True
+except ImportError:
+    HAS_HF = False
 
-    def __init__(self, models_dir: str = "./models"):
-        self.models_dir = models_dir
+logger = logging.getLogger("netguard.ml_inference")
+
+class MLInference:
+    """ML Model inference engine for threat detection with Hugging Face support."""
+
+    def __init__(self, models_dir: Optional[str] = None):
+        self.models_dir = models_dir or os.path.join(os.path.dirname(__file__), "..", "models")
         self.rf_model = None
         self.gb_model = None
         self.scaler = None
         self.model_loaded = False
-        self.model_info = {}
-
-    def load_models(self, model_dir: str = None) -> bool:
-        """Load trained models from disk"""
-        if model_dir:
-            self.models_dir = model_dir
         
+        # Ensure models directory exists
+        os.makedirs(self.models_dir, exist_ok=True)
+
+    def load_models(self) -> bool:
+        """
+        Load trained models from disk. 
+        If not found, attempts to download from Hugging Face if configured.
+        """
+        # 1. Try to download from HF if local files missing
+        if HAS_HF and os.getenv("HF_MODEL_ID"):
+            self._download_from_huggingface()
+
         try:
-            # Find latest models
+            # Find latest models in directory
             model_files = sorted([f for f in os.listdir(self.models_dir) if f.endswith('.pkl')])
             
             if not model_files:
-                print("No model files found")
+                logger.warning("No local model files found in %s", self.models_dir)
                 return False
             
             # Load the latest versions
             for f in reversed(model_files):
+                model_path = os.path.join(self.models_dir, f)
                 if 'rf_model' in f and self.rf_model is None:
-                    model_path = os.path.join(self.models_dir, f)
                     self.rf_model = joblib.load(model_path)
-                    print(f"Loaded RF model: {f}")
-                
-                elif 'gb_model' in f and self.gb_model is None and 'ensemble' not in f:
-                    model_path = os.path.join(self.models_dir, f)
+                    logger.info("Loaded RF model: %s", f)
+                elif 'gb_model' in f and self.gb_model is None:
                     self.gb_model = joblib.load(model_path)
-                    print(f"Loaded GB model: {f}")
-                
+                    logger.info("Loaded GB model: %s", f)
                 elif 'scaler' in f and self.scaler is None:
-                    model_path = os.path.join(self.models_dir, f)
                     self.scaler = joblib.load(model_path)
-                    print(f"Loaded scaler: {f}")
+                    logger.info("Loaded scaler: %s", f)
             
             if self.rf_model and self.scaler:
                 self.model_loaded = True
-                print("Models loaded successfully")
                 return True
-            else:
-                print("Failed to load required models")
-                return False
+            
+            logger.error("Required models (rf_model, scaler) missing after loading attempt.")
+            return False
         
         except Exception as e:
-            print(f"Error loading models: {e}")
+            logger.error("Error loading models: %s", e)
             return False
+
+    def _download_from_huggingface(self):
+        """Download model files from Hugging Face Hub."""
+        repo_id = os.getenv("HF_MODEL_ID")
+        token = os.getenv("HF_TOKEN")
+        
+        files_to_download = ["rf_model.pkl", "gb_model.pkl", "scaler.pkl"]
+        
+        logger.info("Checking Hugging Face for models: %s", repo_id)
+        for filename in files_to_download:
+            local_path = os.path.join(self.models_dir, filename)
+            if not os.path.exists(local_path):
+                try:
+                    logger.info("Downloading %s from HF...", filename)
+                    path = hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        token=token,
+                        local_dir=self.models_dir
+                    )
+                    logger.info("Downloaded %s to %s", filename, path)
+                except Exception as e:
+                    logger.warning("Could not download %s from HF: %s", filename, e)
+
 
     def extract_features_from_network(self, network: Dict, known_networks: List[Dict] = None) -> np.ndarray:
         """Extract ML features from network data"""

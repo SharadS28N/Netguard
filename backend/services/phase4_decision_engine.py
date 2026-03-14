@@ -71,6 +71,7 @@ class Phase4DecisionEngine:
         """
         self.db = Database.get_db()
         self.anomaly_collection = self.db["anomaly_signals"]
+        self.features_collection = self.db["features_baseline"]
         self.threats_collection = self.db["threats"]
         self.detection_logs_collection = self.db["detection_logs"]
 
@@ -92,9 +93,14 @@ class Phase4DecisionEngine:
         
         if not signals:
             print("[Phase 4] No anomaly signals found. Nothing to decide.")
+            # Clear old threats if no current scan results found
+            self.threats_collection.delete_many({})
             return
         
         print(f"[Phase 4] Processing {len(signals)} anomaly signals...")
+        
+        # Clear old threats before saving new ones
+        self.threats_collection.delete_many({})
         
         # Group signals by network
         grouped_signals = self.group_signals_by_network(signals)
@@ -156,6 +162,9 @@ class Phase4DecisionEngine:
         """
         ssid, bssid = network_key
         
+        # Fetch baseline features for signal strength, etc.
+        features = self.features_collection.find_one({"ssid": ssid, "bssid": bssid}, {"_id": 0}) or {}
+
         # Aggregate signals from all layers
         layer_scores = self.compute_layer_scores(signals)
         
@@ -171,7 +180,7 @@ class Phase4DecisionEngine:
         # Map to threat level
         threat_level = self.THREAT_LEVELS.get(verdict, "unknown")
         
-        return {
+        decision = {
             "ssid": ssid,
             "bssid": bssid,
             "verdict": verdict,
@@ -181,6 +190,11 @@ class Phase4DecisionEngine:
             "layer_scores": layer_scores,
             "timestamp": datetime.utcnow().isoformat()
         }
+
+        # Merge with features for UI display
+        decision.update(features)
+        
+        return decision
 
     def compute_layer_scores(self, signals: List[Dict]) -> Dict[str, float]:
         """

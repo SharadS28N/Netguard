@@ -1,0 +1,20 @@
+{
+  "timestamp": "20260313_064339",
+  "models": {
+    "rf": "rf_model_20260313_064339.pkl",
+    "gb": "gb_model_20260313_064339.pkl",
+    "ensemble_rf": "ensemble_rf_20260313_064339.pkl",
+    "ensemble_gb": "ensemble_gb_20260313_064339.pkl",
+    "scaler": "scaler_20260313_064339.pkl"
+  },
+  "feature_names": [
+    "signal_strength",
+    "channel_variance",
+    "encryption_type",
+    "vendor_consistency",
+    "behavior_anomaly",
+    "traffic_pattern",
+    "client_count",
+    "ssid_similarity"
+  ]
+}

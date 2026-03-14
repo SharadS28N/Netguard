@@ -44,191 +44,85 @@ export interface ScanInterfaceProps {
 const ScanInterface: React.FC<ScanInterfaceProps> = ({
   onScanStart,
   onScanComplete,
-  isScanning: externalIsScanning,
+  isScanning,
 }) => {
-  const [isScanning, setIsScanning] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [apiResponse, setApiResponse] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-
   const handleStartScan = async () => {
-    setIsScanning(true)
-    setError(null)
-    
-    try {
-      console.log('Starting scan...')
-      
-      // Make API request to backend
-      const response = await axios.post('http://localhost:5001/api/pipeline/run', {
-        duration: 10,
-        scan_type: 'active'
-      })
-      
-      console.log('API Response:', response.data)
-      
-      // Store response
-      setApiResponse(response.data)
-      
-      // Show modal with response
-      setShowModal(true)
-      
-      // Call parent callbacks if provided
-      if (onScanComplete) {
-        onScanComplete(response.data)
-      }
-      
-    } catch (err: any) {
-      console.error('Scan failed:', err)
-      
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to start scan'
-      setError(errorMessage)
-      
-      // Show error in modal
-      setApiResponse({ error: errorMessage })
-      setShowModal(true)
-      
-    } finally {
-      setIsScanning(false)
+    if (onScanStart) {
+      await onScanStart()
     }
   }
 
-  const closeModal = () => {
-    setShowModal(false)
-    setApiResponse(null)
-    setError(null)
-  }
-
-  const scanning = externalIsScanning || isScanning
-
   return (
-    <>
-      <div className="bg-card border border-border rounded-lg p-8">
-        <button
-          onClick={handleStartScan}
-          disabled={scanning}
-          className="px-6 py-3 bg-accent text-white rounded-md disabled:opacity-50 hover:bg-accent/90 transition-colors"
-        >
-          {scanning ? 'Scanning...' : 'Start Scan'}
-        </button>
+    <div className="space-y-8">
+      {/* Hero Section */}
+      <div className="bg-card border border-border rounded-lg p-12 text-center relative overflow-hidden group">
+        <div className="absolute inset-0 bg-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
-        {scanning && (
-          <div className="mt-4">
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin h-5 w-5 border-2 border-accent border-t-transparent rounded-full"></div>
-              <span className="text-sm text-muted-foreground">Scanning networks...</span>
-            </div>
+        <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+          <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+            <svg 
+              className="w-10 h-10 text-accent" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" 
+              />
+            </svg>
           </div>
-        )}
-      </div>
 
-      {/* Response Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-foreground">
-                {error ? '❌ Scan Failed' : '✅ API Response'}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+          <h2 className="text-3xl font-light tracking-tight">Ready to Scan</h2>
+          <p className="text-muted-foreground text-lg font-light leading-relaxed">
+            Begin a comprehensive network analysis to detect evil twin access points, 
+            suspicious behavior, and potential security vulnerabilities.
+          </p>
 
-            {/* Modal Content */}
-            <div className="p-6">
-              {error ? (
-                <div className="bg-red-500/10 border border-red-500 rounded-lg p-4">
-                  <p className="text-red-500 font-semibold">Error:</p>
-                  <p className="text-red-400 mt-2">{error}</p>
-                </div>
+          <div className="pt-8">
+            <button
+              onClick={handleStartScan}
+              disabled={isScanning}
+              className={`
+                px-12 py-4 rounded-full text-sm font-light tracking-[0.2em] uppercase transition-all duration-500
+                ${isScanning 
+                  ? 'bg-accent/20 text-accent cursor-not-allowed' 
+                  : 'bg-accent text-white hover:bg-accent/90 hover:scale-105 active:scale-95 shadow-lg shadow-accent/20'
+                }
+              `}
+            >
+              {isScanning ? (
+                <span className="flex items-center gap-3">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Analyzing Environment...
+                </span>
               ) : (
-                <div className="space-y-4">
-                  {/* Pretty-printed JSON response */}
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-sm font-semibold text-foreground mb-2">Response Data:</p>
-                    <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
-                      {JSON.stringify(apiResponse, null, 2)}
-                    </pre>
-                  </div>
-
-                  {/* Display key fields if available */}
-                  {apiResponse && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {apiResponse.scan_id && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-sm text-muted-foreground">Scan ID</p>
-                          <p className="text-lg font-semibold text-foreground">{apiResponse.scan_id}</p>
-                        </div>
-                      )}
-                      
-                      {apiResponse.status && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-sm text-muted-foreground">Status</p>
-                          <p className="text-lg font-semibold text-foreground">{apiResponse.status}</p>
-                        </div>
-                      )}
-                      
-                      {apiResponse.message && (
-                        <div className="bg-muted rounded-lg p-4 col-span-full">
-                          <p className="text-sm text-muted-foreground">Message</p>
-                          <p className="text-foreground">{apiResponse.message}</p>
-                        </div>
-                      )}
-
-                      {apiResponse.networks && Array.isArray(apiResponse.networks) && (
-                        <div className="bg-muted rounded-lg p-4 col-span-full">
-                          <p className="text-sm text-muted-foreground mb-2">Networks Found</p>
-                          <p className="text-2xl font-bold text-foreground">{apiResponse.networks.length}</p>
-                        </div>
-                      )}
-
-                      {apiResponse.threat_level && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-sm text-muted-foreground">Threat Level</p>
-                          <p className={`text-lg font-semibold ${
-                            apiResponse.threat_level === 'danger' ? 'text-red-500' :
-                            apiResponse.threat_level === 'suspicious' ? 'text-yellow-500' :
-                            'text-green-500'
-                          }`}>
-                            {apiResponse.threat_level?.toUpperCase()}
-                          </p>
-                        </div>
-                      )}
-
-                      {apiResponse.overall_confidence !== undefined && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-sm text-muted-foreground">Confidence</p>
-                          <p className="text-lg font-semibold text-foreground">
-                            {(apiResponse.overall_confidence * 100).toFixed(1)}%
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                'Initiate Security Scan'
               )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-card border-t border-border p-4">
-              <button
-                onClick={closeModal}
-                className="w-full px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 transition-colors"
-              >
-                Close
-              </button>
-            </div>
+            </button>
           </div>
         </div>
-      )}
-    </>
+      </div>
+
+      {/* Quick Stats/Features */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {[
+          { title: 'Evil Twin Detection', desc: 'Identify rogue access points mimicking legitimate networks.' },
+          { title: 'Behavior Analysis', desc: 'Monitor for suspicious packet patterns and authentication anomalies.' },
+          { title: 'Signal Intelligence', desc: 'Analyze signal strength and consistency across detected nodes.' }
+        ].map((item, i) => (
+          <div key={i} className="p-6 border border-border rounded-lg bg-card/50 hover:border-accent/30 transition-colors">
+            <h3 className="text-sm font-medium tracking-wide mb-2 uppercase">{item.title}</h3>
+            <p className="text-sm text-muted-foreground font-light leading-relaxed">{item.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
-
 export default ScanInterface

@@ -1,248 +1,285 @@
-from flask import Blueprint, request, jsonify
-from services.network_scanner import NetworkScanner
-from models.database import Database
-from datetime import datetime
-import threading
+"""
+Scan Routes — WiFi Network Scanning API
+---
+REST endpoints for WiFi scanning using cross-platform WiFiScanner.
+"""
+
+import logging
 import uuid
+import threading
+
+from flask import Blueprint, request, jsonify
+from services.wifi_scanner import WiFiScanner
+from models.database import Database
+from datetime import datetime, timezone
 from socket_server import socketio
 
-scan_bp = Blueprint('scan', __name__, url_prefix='/api/scan')
+logger = logging.getLogger("netguard.routes.scan")
+
+scan_bp = Blueprint("scan", __name__, url_prefix="/api/scan")
 
 # Global scanner instance
-scanner = None
-current_scan = None
+_scanner = None
 
-def get_scanner():
-    """Get or create scanner instance"""
-    global scanner
-    if scanner is None:
-        scanner = NetworkScanner()
-    return scanner
 
-@scan_bp.route('/interfaces', methods=['GET'])
-def get_interfaces():
-    """Get available network interfaces"""
-    try:
-        scanner = get_scanner()
-        interfaces = scanner.get_available_interfaces()
-        
-        return jsonify({
-            "interfaces": interfaces,
-            "timestamp": datetime.utcnow().isoformat()
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+def _get_scanner() -> WiFiScanner:
+    """Get or create the singleton WiFi scanner."""
+    global _scanner
+    if _scanner is None:
+        _scanner = WiFiScanner()
+    return _scanner
 
-@scan_bp.route('/start', methods=['POST'])
+
+@scan_bp.route("/start", methods=["POST"])
 def start_scan():
-    """Start network scan"""
-    global current_scan
-    
+    """Start a WiFi network scan."""
     try:
-        data = request.get_json()
-        interface = data.get('interface')
-        duration = data.get('duration', 30)
-        scan_type = data.get('scan_type', 'passive')  # passive or active
-        
-        if not interface:
-            return jsonify({"error": "Interface not specified"}), 400
-        
-        # Create scan ID
+        data = request.get_json(silent=True) or {}
+        duration = min(data.get("duration", 10), 60)
+
         scan_id = str(uuid.uuid4())
-        
-        # Save scan to database
         db = Database.get_db()
+
+        # Record scan start
         scan_doc = {
             "scan_id": scan_id,
-            "interface": interface,
-            "scan_type": scan_type,
-            "duration": duration,
             "status": "in_progress",
-            "started_at": datetime.utcnow().isoformat(),
+            "duration": duration,
+            "started_at": datetime.now(timezone.utc).isoformat(),
             "networks_found": 0,
-            "threats_detected": 0
+            "threats_detected": 0,
         }
-        db['scans'].insert_one(scan_doc)
-        socketio.emit(
-            'scan_status',
-            {
-                "scan_id": scan_id,
-                "status": "in_progress",
-                "interface": interface,
-                "scan_type": scan_type,
-                "duration": duration,
-                "started_at": scan_doc["started_at"]
-            },
-            broadcast=True
-        )
-        
-        # Run scan in background thread
-        def run_scan():
+        if db is not None:
+            db["scans"].insert_one(scan_doc)
+
+        socketio.emit("scan_status", {
+            "scan_id": scan_id,
+            "status": "in_progress",
+            "duration": duration,
+        }, broadcast=True)
+
+        # Run scan in background
+        def _run():
             try:
-                scanner = get_scanner()
-                scanner.interface = interface
-                
-                if scan_type == 'active':
-                    results = scanner.start_active_scan(interface, duration)
-                else:
-                    results = scanner.start_scan(interface, duration)
-                
-                # Analyze for threats
-                threats = scanner.analyze_for_threats(results.get('networks', []))
-                
-                # Save results
-                db['scans'].update_one(
-                    {"scan_id": scan_id},
-                    {"$set": {
-                        "status": "completed",
-                        "completed_at": datetime.utcnow().isoformat(),
-                        "networks_found": len(results.get('networks', [])),
-                        "threats_detected": len(threats),
-                        "results": results,
-                        "threats": threats
-                    }}
-                )
-                socketio.emit(
-                    'scan_status',
-                    {
-                        "scan_id": scan_id,
-                        "status": "completed",
-                        "networks_found": len(results.get('networks', [])),
-                        "threats_detected": len(threats),
-                        "completed_at": datetime.utcnow().isoformat()
-                    },
-                    broadcast=True
-                )
-                
-            except Exception as e:
-                print(f"Scan error: {e}")
-                db['scans'].update_one(
-                    {"scan_id": scan_id},
-                    {"$set": {
-                        "status": "failed",
-                        "error": str(e),
-                        "completed_at": datetime.utcnow().isoformat()
-                    }}
-                )
-                socketio.emit(
-                    'scan_status',
-                    {
-                        "scan_id": scan_id,
-                        "status": "failed",
-                        "error": str(e),
-                        "completed_at": datetime.utcnow().isoformat()
-                    },
-                    broadcast=True
-                )
-        
-        scan_thread = threading.Thread(target=run_scan, daemon=True)
-        scan_thread.start()
-        
+                scanner = _get_scanner()
+                networks = scanner.scan(duration=duration)
+
+                completed_at = datetime.now(timezone.utc).isoformat()
+
+                if db is not None:
+                    # Save networks
+                    for net in networks:
+                        try:
+                            db["networks"].update_one(
+                                {"bssid": net["bssid"]},
+                                {"$set": net},
+                                upsert=True,
+                            )
+                        except Exception:
+                            pass
+
+                    # Update scan record
+                    db["scans"].update_one(
+                        {"scan_id": scan_id},
+                        {"$set": {
+                            "status": "completed",
+                            "completed_at": completed_at,
+                            "networks_found": len(networks),
+                            "results": {"networks": networks},
+                        }},
+                    )
+
+                socketio.emit("scan_status", {
+                    "scan_id": scan_id,
+                    "status": "completed",
+                    "networks_found": len(networks),
+                    "completed_at": completed_at,
+                }, broadcast=True)
+
+            except Exception as exc:
+                logger.error("Scan %s failed: %s", scan_id, exc)
+                if db is not None:
+                    db["scans"].update_one(
+                        {"scan_id": scan_id},
+                        {"$set": {
+                            "status": "failed",
+                            "error": str(exc),
+                        }},
+                    )
+                socketio.emit("scan_status", {
+                    "scan_id": scan_id,
+                    "status": "failed",
+                    "error": str(exc),
+                }, broadcast=True)
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
         return jsonify({
             "scan_id": scan_id,
             "status": "started",
-            "message": f"Scan started on {interface} for {duration} seconds",
-            "timestamp": datetime.utcnow().isoformat()
+            "message": f"Scan started for {duration} seconds",
         }), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
-@scan_bp.route('/status/<scan_id>', methods=['GET'])
+    except Exception as exc:
+        logger.error("start_scan error: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
+@scan_bp.route("/quick", methods=["POST"])
+def quick_scan():
+    """Run a quick synchronous scan and return results immediately."""
+    try:
+        scanner = _get_scanner()
+        networks = scanner.scan(duration=5)
+
+        # Analyze for basic threats
+        threats = _analyze_threats(networks)
+
+        # Save to DB
+        db = Database.get_db()
+        scan_id = str(uuid.uuid4())
+        if db is not None:
+            db["scans"].insert_one({
+                "scan_id": scan_id,
+                "status": "completed",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "networks_found": len(networks),
+                "threats_detected": len(threats),
+            })
+
+        return jsonify({
+            "scan_id": scan_id,
+            "networks": networks,
+            "threats": threats,
+            "summary": {
+                "total_networks": len(networks),
+                "threats_detected": len(threats),
+                "scan_method": scanner.scan_method,
+            },
+        }), 200
+
+    except Exception as exc:
+        logger.error("quick_scan error: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
+@scan_bp.route("/interfaces", methods=["GET"])
+def get_interfaces():
+    """Get available WiFi scanning method and status."""
+    try:
+        scanner = _get_scanner()
+        return jsonify({
+            "scan_method": scanner.scan_method,
+            "platform": __import__("platform").system(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@scan_bp.route("/status/<scan_id>", methods=["GET"])
 def get_scan_status(scan_id):
-    """Get scan status"""
+    """Get scan status by ID."""
     try:
         db = Database.get_db()
-        scan = db['scans'].find_one({"scan_id": scan_id})
-        
-        if not scan:
-            return jsonify({"error": "Scan not found"}), 404
-        
-        # Remove MongoDB ObjectId
-        scan.pop('_id', None)
-        
-        return jsonify(scan), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
-@scan_bp.route('/results/<scan_id>', methods=['GET'])
-def get_scan_results(scan_id):
-    """Get scan results"""
-    try:
-        db = Database.get_db()
-        scan = db['scans'].find_one({"scan_id": scan_id})
-        
+        scan = db["scans"].find_one({"scan_id": scan_id})
         if not scan:
             return jsonify({"error": "Scan not found"}), 404
-        
-        if scan.get('status') != 'completed':
+
+        scan.pop("_id", None)
+        return jsonify(scan), 200
+
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@scan_bp.route("/results/<scan_id>", methods=["GET"])
+def get_scan_results(scan_id):
+    """Get completed scan results."""
+    try:
+        db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
+
+        scan = db["scans"].find_one({"scan_id": scan_id})
+        if not scan:
+            return jsonify({"error": "Scan not found"}), 404
+
+        if scan.get("status") != "completed":
             return jsonify({
                 "error": "Scan not completed",
-                "status": scan.get('status')
+                "status": scan.get("status"),
             }), 400
-        
-        results = {
+
+        return jsonify({
             "scan_id": scan_id,
-            "networks": scan.get('results', {}).get('networks', []),
-            "threats": scan.get('threats', []),
+            "networks": scan.get("results", {}).get("networks", []),
             "summary": {
-                "total_networks": scan.get('networks_found', 0),
-                "threats_detected": scan.get('threats_detected', 0),
-                "scan_duration": scan.get('duration', 0),
-                "timestamp": scan.get('completed_at')
-            }
-        }
-        
-        return jsonify(results), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+                "total_networks": scan.get("networks_found", 0),
+                "threats_detected": scan.get("threats_detected", 0),
+            },
+        }), 200
 
-@scan_bp.route('/history', methods=['GET'])
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@scan_bp.route("/history", methods=["GET"])
 def get_scan_history():
-    """Get recent scans"""
+    """Get recent scan history."""
     try:
         db = Database.get_db()
-        limit = request.args.get('limit', 10, type=int)
-        
-        scans = list(db['scans'].find().sort("started_at", -1).limit(limit))
-        
-        # Remove MongoDB ObjectIds
-        for scan in scans:
-            scan.pop('_id', None)
-        
-        return jsonify({
-            "scans": scans,
-            "count": len(scans),
-            "timestamp": datetime.utcnow().isoformat()
-        }), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
-@scan_bp.route('/cancel/<scan_id>', methods=['POST'])
-def cancel_scan(scan_id):
-    """Cancel an ongoing scan"""
-    try:
-        db = Database.get_db()
-        
-        result = db['scans'].update_one(
-            {"scan_id": scan_id, "status": "in_progress"},
-            {"$set": {
-                "status": "cancelled",
-                "cancelled_at": datetime.utcnow().isoformat()
-            }}
-        )
-        
-        if result.matched_count == 0:
-            return jsonify({"error": "Scan not found or already completed"}), 404
-        
-        return jsonify({
-            "message": "Scan cancelled",
-            "scan_id": scan_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }), 200
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        limit = request.args.get("limit", 10, type=int)
+        scans = list(db["scans"].find().sort("started_at", -1).limit(limit))
+
+        for s in scans:
+            s.pop("_id", None)
+            # Remove heavy results data from history listing
+            s.pop("results", None)
+
+        return jsonify({"scans": scans, "count": len(scans)}), 200
+
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+def _analyze_threats(networks):
+    """Quick rule-based threat analysis."""
+    threats = []
+    ssid_map = {}
+
+    for net in networks:
+        ssid = net.get("ssid", "")
+        if ssid and ssid not in ("[Hidden]", ""):
+            ssid_map.setdefault(ssid, []).append(net)
+
+    for ssid, nets in ssid_map.items():
+        if len(nets) > 1:
+            for net in nets:
+                threats.append({
+                    "bssid": net["bssid"],
+                    "ssid": ssid,
+                    "threat_type": "evil_twin",
+                    "confidence": 0.7,
+                    "reason": f"Duplicate SSID ({len(nets)} APs)",
+                })
+
+    for net in networks:
+        if net.get("encryption") in ("Open", "WEP", "None", ""):
+            threats.append({
+                "bssid": net["bssid"],
+                "ssid": net.get("ssid"),
+                "threat_type": "weak_encryption",
+                "confidence": 0.6,
+                "reason": f"Weak encryption: {net.get('encryption', 'Open')}",
+            })
+
+    return threats

@@ -1,184 +1,229 @@
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+"""
+Netguard Database Module
+---
+Thread-safe MongoDB connection manager with Atlas support,
+connection pooling, retry logic, and index management.
+"""
+
 import os
-from datetime import datetime
+import time
+import logging
+from threading import Lock
+from typing import Optional
+
+from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo.errors import (
+    ConnectionFailure,
+    ServerSelectionTimeoutError,
+    OperationFailure,
+)
+
+logger = logging.getLogger("netguard.database")
+
 
 class Database:
-    _client = None
+    """
+    Thread-safe singleton MongoDB connection manager.
+
+    Usage:
+        db = Database.get_db()
+        if db:
+            db["collection"].find({})
+    """
+
+    _client: Optional[MongoClient] = None
     _db = None
+    _uri: str = ""
+    _db_name: str = ""
+    _lock = Lock()
+
+    # ─── Connection Lifecycle ────────────────────────────────
 
     @classmethod
-    def connect(cls):
-        """Connect to MongoDB"""
-        try:
-            uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
-            dbname = os.getenv('MONGODB_DB', 'netguard')
-            cls._client = MongoClient(uri, serverSelectionTimeoutMS=5000)
-            cls._db = cls._client[dbname]
-            cls._client.admin.command('ping')
-            print("Database connected successfully")
-            cls.create_collections()
-            return True
-        except ConnectionFailure as e:
-            print(f"Failed to connect to MongoDB: {e}")
-            return False
+    def connect(
+        cls,
+        uri: Optional[str] = None,
+        db_name: Optional[str] = None,
+        max_retries: int = 3,
+    ) -> bool:
+        """
+        Connect to MongoDB with retry logic. This method is thread-safe.
+
+        Args:
+            uri: MongoDB connection URI (defaults to env var)
+            db_name: Database name (defaults to env var)
+            max_retries: Number of connection attempts
+
+        Returns:
+            True if connected successfully
+        """
+        with cls._lock:
+            if cls._client and cls.is_connected():
+                logger.debug("Already connected to MongoDB.")
+                return True
+
+            cls._uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+            cls._db_name = db_name or os.getenv("MONGODB_DB", "netguard")
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    logger.info("MongoDB connection attempt %d/%d...", attempt, max_retries)
+
+                    cls._client = MongoClient(
+                        cls._uri,
+                        serverSelectionTimeoutMS=10000,
+                        connectTimeoutMS=10000,
+                        socketTimeoutMS=20000,
+                        maxPoolSize=50,
+                        minPoolSize=5,
+                        retryWrites=True,
+                        retryReads=True,
+                        tls="mongodb+srv" in cls._uri or "tls=true" in cls._uri.lower(),
+                    )
+
+                    # Verify connection
+                    cls._client.admin.command("ping")
+                    cls._db = cls._client[cls._db_name]
+
+                    logger.info(
+                        "Connected to MongoDB: %s (database: %s)",
+                        cls._uri.split("@")[-1].split("/")[0] if "@" in cls._uri else "localhost",
+                        cls._db_name,
+                    )
+
+                    # Create collections and indexes
+                    cls._ensure_collections()
+                    return True
+
+                except (ConnectionFailure, ServerSelectionTimeoutError) as exc:
+                    wait = 2 ** attempt
+                    logger.warning(
+                        "Connection attempt %d failed: %s. Retrying in %ds...",
+                        attempt,
+                        exc,
+                        wait,
+                    )
+                    if attempt < max_retries:
+                        time.sleep(wait)
+                    else:
+                        logger.error("Failed to connect to MongoDB after %d attempts", max_retries)
+                        cls._client = None # Ensure client is None on failure
+                        cls._db = None
+                        return False
+
+                except Exception as exc:
+                    logger.error("Unexpected database error during connection: %s", exc)
+                    cls._client = None # Ensure client is None on failure
+                    cls._db = None
+                    return False
+        return False
 
     @classmethod
     def get_db(cls):
-        """Get database instance"""
+        """
+        Get the database instance. Auto-connects if needed in a thread-safe manner.
+        """
         if cls._db is None:
-            cls.connect()
+            # Use a lock to ensure connect is only called once during initialization
+            with cls._lock:
+                # Double-check locking pattern
+                if cls._db is None:
+                    cls.connect()
         return cls._db
 
     @classmethod
     def disconnect(cls):
-        """Disconnect from MongoDB"""
-        if cls._client:
-            cls._client.close()
+        """Gracefully close the MongoDB connection."""
+        with cls._lock:
+            if cls._client:
+                cls._client.close()
+                cls._client = None
+                cls._db = None
+                logger.info("MongoDB connection closed")
 
     @classmethod
-    def create_collections(cls):
-        """Create collections with schema validation"""
-        db = cls.get_db()
+    def is_connected(cls) -> bool:
+        """Check if the database connection is alive."""
+        if cls._client is None:
+            return False
+        try:
+            cls._client.admin.command("ping")
+            return True
+        except ConnectionFailure:
+            return False
 
-        # Networks collection
-        if 'networks' not in db.list_collection_names():
-            db.create_collection('networks')
-            db['networks'].create_index('bssid', unique=True)
-            db['networks'].create_index('timestamp')
-            print("Created 'networks' collection")
+    # ─── Collection & Index Management ───────────────────────
 
-        # Threats collection
-        if 'threats' not in db.list_collection_names():
-            db.create_collection('threats')
-            db['threats'].create_index('network_id')
-            db['threats'].create_index('timestamp')
-            db['threats'].create_index('threat_type')
-            print("Created 'threats' collection")
+    @classmethod
+    def _ensure_collections(cls):
+        """Create collections and indexes if they don't exist."""
+        if cls._db is None:
+            logger.warning("Cannot ensure collections, database not connected.")
+            return
 
-        # Scans collection
-        if 'scans' not in db.list_collection_names():
-            db.create_collection('scans')
-            db['scans'].create_index('timestamp')
-            db['scans'].create_index('status')
-            print("Created 'scans' collection")
+        db = cls._db
+        existing = set(db.list_collection_names())
 
-        # Detection logs collection
-        if 'detection_logs' not in db.list_collection_names():
-            db.create_collection('detection_logs')
-            db['detection_logs'].create_index('timestamp')
-            db['detection_logs'].create_index('threat_level')
-            db['detection_logs'].create_index('scan_id')
-            print("Created 'detection_logs' collection")
+        # Define collections and their indexes
+        collection_indexes = {
+            "networks": [
+                ([("bssid", ASCENDING)], {"unique": True}),
+                ([("timestamp", DESCENDING)], {}),
+                ([("ssid", ASCENDING)], {}),
+            ],
+            "threats": [
+                ([("ssid", ASCENDING), ("bssid", ASCENDING)], {}),
+                ([("timestamp", DESCENDING)], {}),
+                ([("threat_level", ASCENDING)], {}),
+                ([("verdict", ASCENDING)], {}),
+            ],
+            "scans": [
+                ([("scan_id", ASCENDING)], {"unique": True}),
+                ([("timestamp", DESCENDING)], {}),
+                ([("status", ASCENDING)], {}),
+            ],
+            "detection_logs": [
+                ([("timestamp", DESCENDING)], {}),
+                ([("threat_level", ASCENDING)], {}),
+                ([("scan_id", ASCENDING)], {}),
+            ],
+            "models": [
+                ([("model_name", ASCENDING)], {"unique": True}),
+                ([("created_at", DESCENDING)], {}),
+            ],
+            "training_data": [
+                ([("timestamp", DESCENDING)], {}),
+                ([("label", ASCENDING)], {}),
+            ],
+            "raw_scans": [
+                ([("timestamp", DESCENDING)], {}),
+            ],
+            "features_baseline": [
+                ([("ssid", ASCENDING), ("bssid", ASCENDING)], {"unique": True}),
+            ],
+            "anomaly_signals": [
+                ([("ssid", ASCENDING), ("bssid", ASCENDING)], {}),
+                ([("layer", ASCENDING)], {}),
+            ],
+        }
 
-        # ML models collection
-        if 'models' not in db.list_collection_names():
-            db.create_collection('models')
-            db['models'].create_index('model_name', unique=True)
-            db['models'].create_index('created_at')
-            print("Created 'models' collection")
+        for collection_name, indexes in collection_indexes.items():
+            if collection_name not in existing:
+                try:
+                    db.create_collection(collection_name)
+                    logger.info("Created collection: %s", collection_name)
+                except OperationFailure as e:
+                    logger.warning("Could not create collection %s: %s", collection_name, e)
 
-        # Training data collection
-        if 'training_data' not in db.list_collection_names():
-            db.create_collection('training_data')
-            db['training_data'].create_index('timestamp')
-            db['training_data'].create_index('label')
-            print("Created 'training_data' collection")
 
-        # Phase 1: Raw Scans collection
-        if 'raw_scans' not in db.list_collection_names():
-            db.create_collection('raw_scans')
-            db['raw_scans'].create_index('timestamp')
-            print("Created 'raw_scans' collection")
+            for index_keys, index_opts in indexes:
+                try:
+                    db[collection_name].create_index(index_keys, **index_opts)
+                except OperationFailure as exc:
+                    # Index may already exist with different options
+                    logger.debug(
+                        "Index on %s: %s (may already exist)", collection_name, exc
+                    )
 
-        # Phase 2: Features Baseline collection
-        if 'features_baseline' not in db.list_collection_names():
-            db.create_collection('features_baseline')
-            db['features_baseline'].create_index([('ssid', 1), ('bssid', 1)], unique=True)
-            print("Created 'features_baseline' collection")
+        logger.info("Database indexes verified")
 
-# Schema definitions
-NETWORK_SCHEMA = {
-    "bssid": str,  # MAC address
-    "ssid": str,
-    "channel": int,
-    "signal_strength": int,  # dBm
-    "frequency": str,
-    "encryption": str,
-    "is_hidden": bool,
-    "vendor": str,
-    "client_count": int,
-    "timestamp": str,
-    "location": {
-        "latitude": float,
-        "longitude": float
-    }
-}
-
-THREAT_SCHEMA = {
-    "network_id": str,
-    "threat_type": str,  # evil_twin, rogue_ap, known_attacker, suspicious
-    "confidence": float,  # 0-1
-    "threat_level": str,  # critical, high, medium, low
-    "features": {},  # ML features used for detection
-    "model_version": str,
-    "timestamp": str,
-    "details": str
-}
-
-SCAN_SCHEMA = {
-    "scan_id": str,
-    "scan_type": str,  # active, passive
-    "duration": int,  # seconds
-    "networks_found": int,
-    "threats_detected": int,
-    "status": str,  # completed, in_progress, failed
-    "timestamp": str,
-    "results": {
-        "networks": [],
-        "threats": [],
-        "statistics": {}
-    }
-}
-
-DETECTION_LOG_SCHEMA = {
-    "scan_id": str,
-    "event_type": str,
-    "threat_level": str,
-    "detection_result": {
-        "overall_threat": str,
-        "confidence_scores": {
-            "signature": float,
-            "behavior": float,
-            "traffic": float,
-            "ensemble": float
-        },
-        "networks": []
-    },
-    "timestamp": str
-}
-
-MODEL_SCHEMA = {
-    "model_name": str,
-    "model_type": str,  # random_forest, xgboost, neural_network, ensemble
-    "version": str,
-    "accuracy": float,
-    "precision": float,
-    "recall": float,
-    "f1_score": float,
-    "training_samples": int,
-    "test_samples": int,
-    "created_at": str,
-    "updated_at": str,
-    "features": [],
-    "model_path": str
-}
-
-TRAINING_DATA_SCHEMA = {
-    "features": {},
-    "label": str,  # evil_twin, legitimate, unknown
-    "source": str,
-    "confidence": float,
-    "timestamp": str,
-    "validated": bool
-}

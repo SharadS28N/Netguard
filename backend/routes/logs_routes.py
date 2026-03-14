@@ -13,7 +13,7 @@ def get_detection_logs():
         # Query parameters
         limit = request.args.get('limit', 50, type=int)
         threat_level = request.args.get('threat_level')
-        hours = request.args.get('hours', 24, type=int)
+        hours = request.args.get('hours', 1, type=int) # Default to 1 hour
         
         # Build query
         query = {}

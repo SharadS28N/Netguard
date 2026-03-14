@@ -271,13 +271,12 @@ class Phase3AnomalyEngine:
     def save_anomaly_signals(self, signals: List[Dict]):
         """
         Save the combined output of all layers to `anomaly_signals`.
-        New collection: anomaly_signals
         """
         if not signals:
             return
         
-        # Clear old signals (optional - or use timestamps to keep history)
-        # self.anomaly_collection.delete_many({})
+        # Clear old signals to ensure we only analyze the current scan's anomalies
+        self.anomaly_collection.delete_many({})
         
         # Insert all new signals
         self.anomaly_collection.insert_many(signals)

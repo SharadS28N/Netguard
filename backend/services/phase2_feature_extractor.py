@@ -147,27 +147,27 @@ class Phase2FeatureExtractor:
             "bssid": bssid,
 
             # Signal statistics
-            "avg_signal": np.mean(signals) if signals else None,
-            "signal_variance": np.std(signals) if signals else None,
+            "avg_signal": float(np.mean(signals)) if signals else None,
+            "signal_variance": float(np.std(signals)) if signals else None,
 
             # Channel statistics
             "avg_channel": self._mode(channels),
-            "channel_variance": np.std(channels) if len(channels) > 1 else 0,
+            "channel_variance": float(np.std(channels)) if len(channels) > 1 else 0.0,
 
             # Client statistics
-            "client_count_avg": np.mean(client_counts) if client_counts else None,
-            "client_count_max": max(client_counts) if client_counts else None,
+            "client_count_avg": float(np.mean(client_counts)) if client_counts else None,
+            "client_count_max": int(max(client_counts)) if client_counts else None,
 
             # Security & Vendor
             "encryption": self._mode(encryptions),
             "authentication": self._mode(authentications),
             "vendor_oui": bssid[:8].upper() if bssid else None,
-            "ssid_bssid_count": ssid_bssid_count,
+            "ssid_bssid_count": int(ssid_bssid_count),
 
             # Time statistics
             "first_seen": min(timestamps) if timestamps else None,
             "last_seen": max(timestamps) if timestamps else None,
-            "observation_count": len(observations),
+            "observation_count": int(len(observations)),
 
             # Metadata
             "updated_at": datetime.utcnow().isoformat()

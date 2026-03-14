@@ -1,189 +1,165 @@
-#!/usr/bin/env python3
 """
-NetGuard Nepal - Complete Training & Detection Pipeline
-This script:
-1. Trains ML models using synthetic data
-2. Runs Phase 1: WiFi Scanning
-3. Runs Phase 2: Feature Extraction
-4. Runs Phase 3: Anomaly Detection
-5. Runs Phase 4: Decision Engine
+Netguard — Complete Training & Detection Pipeline
+---
+Orchestrates the full ML + detection pipeline:
+1. Train ML models (research-informed data)
+2. Phase 1: WiFi Scanning (Windows netsh / cross-platform)
+3. Phase 2: Feature Extraction & Baseline Building
+4. Phase 3: Anomaly Detection (Signature + Behavior + ML)
+5. Phase 4: Decision Engine (Final verdicts)
 """
 
 import os
 import sys
 import time
-from datetime import datetime
-from services.ml_trainer import MLTrainer
-from services.phase1_scanner import Phase1Scanner
-from services.phase2_feature_extractor import Phase2FeatureExtractor
-from services.phase3_anomaly_engine import Phase3AnomalyEngine
-from services.phase4_decision_engine import Phase4DecisionEngine
-from models.database import Database
+import logging
+
 from dotenv import load_dotenv
 
-def train_models():
-    """Train ML models"""
-    print("=" * 80)
-    print("STEP 1: ML Model Training")
-    print("=" * 80)
-    print()
-    
-    # Initialize trainer
-    print("Initializing ML Trainer...")
-    trainer = MLTrainer(model_dir="./models")
-    print("✓ Trainer initialized\n")
-    
-    # Start training
-    print("Starting model training...")
-    print("-" * 80)
-    
+logger = logging.getLogger("netguard.pipeline")
+
+
+def train_models(model_dir: str = "./models") -> bool:
+    """
+    Train ML models using research-informed synthetic data.
+
+    Returns:
+        True if training succeeded
+    """
+    from services.ml_trainer import MLTrainer
+
+    logger.info("=" * 60)
+    logger.info("STEP 1: ML Model Training")
+    logger.info("=" * 60)
+
     try:
-        results = trainer.train_full_pipeline()
-        
-        print("-" * 80)
-        print("\n✓ Training completed successfully!\n")
-        
-        # Display results
-        print("Training Results:")
-        print(f"  Timestamp: {results['timestamp']}")
-        print(f"  Training Samples: {results['training_samples']}")
-        print(f"  Test Samples: {results['test_samples']}")
-        print()
-        
-        for model_type, model_data in results['models'].items():
-            print(f"{model_type.upper()} Model:")
-            metrics = model_data.get('metrics', {})
-            print(f"  ├─ Accuracy:  {metrics.get('accuracy', 0):.4f}")
-            print(f"  ├─ Precision: {metrics.get('precision', 0):.4f}")
-            print(f"  ├─ Recall:    {metrics.get('recall', 0):.4f}")
-            print(f"  ├─ F1-Score:  {metrics.get('f1_score', 0):.4f}")
-            print(f"  └─ Path: {model_data.get('path', 'N/A')}")
-            
-            if model_data.get('feature_importance'):
-                print(f"\n  Top Features:")
-                features = model_data['feature_importance']
-                sorted_features = sorted(features.items(), key=lambda x: x[1], reverse=True)[:3]
-                for feat, importance in sorted_features:
-                    print(f"    ├─ {feat}: {importance:.4f}")
-            print()
-        
-        print("=" * 80)
-        print("✓ Models saved to ./models/ directory")
-        print("=" * 80)
-        print()
-        
+        trainer = MLTrainer(model_dir=model_dir)
+        results = trainer.train_full_pipeline(num_samples=3000)
+
+        # Log results with safety
+        models_data = results.get("models", {})
+        for model_type, model_data in models_data.items():
+            metrics = model_data.get("metrics", {})
+            logger.info(
+                "  %s — Acc: %.4f  Prec: %.4f  Rec: %.4f  F1: %.4f",
+                model_type.upper(),
+                metrics.get("accuracy", 0),
+                metrics.get("precision", 0),
+                metrics.get("recall", 0),
+                metrics.get("f1", 0),
+            )
+
+        cv = results.get("cross_validation", {})
+        logger.info(
+            "  Cross-validation: %.4f ± %.4f",
+            cv.get("mean_accuracy", 0), cv.get("std", 0),
+        )
+
+        logger.info("Models saved to %s", model_dir)
         return True
-        
-    except Exception as e:
-        print(f"\n❌ ERROR: Training failed!")
-        print(f"Details: {str(e)}")
+
+    except Exception as exc:
+        logger.error("Training failed: %s", exc, exc_info=True)
         return False
 
-def run_detection_pipeline():
-    """Run the complete 4-phase detection pipeline"""
-    print("=" * 80)
-    print("STEP 2: Running Detection Pipeline")
-    print("=" * 80)
-    print()
-    
+
+def run_detection_pipeline(scan_duration: int = 3) -> bool:
+    """
+    Run the complete 4-phase detection pipeline.
+
+    Args:
+        scan_duration: How long to scan for WiFi networks (seconds)
+
+    Returns:
+        True if pipeline completed successfully
+    """
+    from services.phase1_scanner import Phase1Scanner
+    from services.phase2_feature_extractor import Phase2FeatureExtractor
+    from services.phase3_anomaly_engine import Phase3AnomalyEngine
+    from services.phase4_decision_engine import Phase4DecisionEngine
+
     try:
         # Phase 1: WiFi Scanning
-        print("=" * 80)
-        print("Phase 1: WiFi Network Scanning")
-        print("=" * 80)
-        scanner = Phase1Scanner()
+        logger.info("Phase 1: WiFi Network Scanning (%ds)...", scan_duration)
+        scanner = Phase1Scanner(interval=scan_duration)
         scanner.start()
-        print("⏳ Scanning for 10 seconds...")
-        time.sleep(10)  # Scan for 10 seconds (reduced from 60 for faster testing)
+        time.sleep(scan_duration + 1)
         scanner.stop()
-        print("✓ Phase 1 Complete\n")
-        
+        logger.info("Phase 1: Complete")
+
         # Phase 2: Feature Extraction
-        print("=" * 80)
-        print("Phase 2: Feature Extraction & Baseline Building")
-        print("=" * 80)
+        logger.info("Phase 2: Feature Extraction & Baseline...")
         Phase2FeatureExtractor().run()
-        print("✓ Phase 2 Complete\n")
-        
+        logger.info("Phase 2: Complete")
+
         # Phase 3: Anomaly Detection
-        print("=" * 80)
-        print("Phase 3: Anomaly Detection")
-        print("=" * 80)
+        logger.info("Phase 3: Anomaly Detection...")
         Phase3AnomalyEngine().run()
-        print("✓ Phase 3 Complete\n")
-        
+        logger.info("Phase 3: Complete")
+
         # Phase 4: Decision Engine
-        print("=" * 80)
-        print("Phase 4: Decision & Confidence Engine")
-        print("=" * 80)
+        logger.info("Phase 4: Decision & Confidence Engine...")
         Phase4DecisionEngine().run()
-        print("✓ Phase 4 Complete\n")
-        
+        logger.info("Phase 4: Complete")
+
         return True
-        
-    except Exception as e:
-        print(f"\n❌ ERROR: Pipeline failed!")
-        print(f"Details: {str(e)}")
-        import traceback
-        traceback.print_exc()
+
+    except Exception as exc:
+        logger.error("Detection pipeline failed: %s", exc, exc_info=True)
         return False
 
+
 def main():
-    """Main entry point"""
-    print("\n")
-    print("█" * 80)
-    print("█" + " " * 78 + "█")
-    print("█" + "  NetGuard Nepal - Complete Training & Detection Pipeline".center(78) + "█")
-    print("█" + " " * 78 + "█")
-    print("█" * 80)
-    print("\n")
-    
-    # Load environment variables
+    """Main entry point for standalone execution."""
     load_dotenv()
-    
+
+    # Setup logging for standalone execution
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)-8s | %(name)-25s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        stream=sys.stdout,
+    )
+
+    from models.database import Database
+
+    logger.info("=" * 60)
+    logger.info("  Netguard — Training & Detection Pipeline")
+    logger.info("=" * 60)
+
     # Connect to database
-    print("Connecting to MongoDB...")
+    logger.info("Connecting to MongoDB...")
     if not Database.connect():
-        print("❌ ERROR: Could not connect to MongoDB")
-        print("Make sure MongoDB is running and MONGODB_URI is set correctly")
+        logger.error("Could not connect to MongoDB. Check .env MONGODB_URI")
         sys.exit(1)
-    
-    print("✓ Connected to MongoDB\n")
-    
+
+    logger.info("MongoDB connected")
+
     # Step 1: Train Models
     if not train_models():
-        print("\n❌ Pipeline aborted due to training failure")
+        logger.error("Pipeline aborted: training failed")
         Database.disconnect()
         sys.exit(1)
-    
+
     # Step 2: Run Detection Pipeline
-    if not run_detection_pipeline():
-        print("\n❌ Pipeline aborted due to detection failure")
+    if not run_detection_pipeline(scan_duration=5):
+        logger.error("Pipeline aborted: detection failed")
         Database.disconnect()
         sys.exit(1)
-    
-    # Success!
-    print("=" * 80)
-    print("PIPELINE COMPLETE!")
-    print("=" * 80)
-    print()
-    print("✅ ML models trained and saved")
-    print("✅ WiFi networks scanned")
-    print("✅ Behavioral baselines created")
-    print("✅ Anomalies detected")
-    print("✅ Threat decisions made")
-    print()
-    print("📊 Check MongoDB Compass:")
-    print("   - raw_scans: Raw WiFi data")
-    print("   - features_baseline: Network profiles")
-    print("   - anomaly_signals: Suspicious signals")
-    print("   - threats: Final verdicts (PASS/FAIL)")
-    print("   - detection_logs: Audit trail")
-    print()
-    print("=" * 80)
-    
+
+    # Done
+    logger.info("=" * 60)
+    logger.info("Pipeline complete!")
+    logger.info("  - raw_scans: Raw WiFi data")
+    logger.info("  - features_baseline: Network profiles")
+    logger.info("  - anomaly_signals: Suspicious signals")
+    logger.info("  - threats: Final verdicts")
+    logger.info("  - detection_logs: Audit trail")
+    logger.info("=" * 60)
+
     Database.disconnect()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

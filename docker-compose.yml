@@ -1,0 +1,39 @@
+# Netguard — Docker Compose
+# Runs backend + frontend services
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB:-netguard}
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5001
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:5001
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

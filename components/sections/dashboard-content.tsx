@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
 
@@ -11,11 +11,27 @@ import ThreatStats from '@/components/dashboard/threat-stats'
 
 export default function DashboardContent() {
   const [activeTab, setActiveTab] = useState('scan')
-  const [scanResults, setScanResults] = useState<any>(null)
+  const [latestScan, setLatestScan] = useState<any | null>(null)
+  const [allScans, setAllScans] = useState<any[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const API_URL = 'http://localhost:500/api/pipeline/run'
+  const API_URL = '/api/pipeline/run' // Use the proxy
+
+  // Load historical scans on mount
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await axios.get('/api/logs/detection?hours=24&limit=100')
+        if (response.data?.logs) {
+          setAllScans(response.data.logs)
+        }
+      } catch (err) {
+        console.error('Failed to fetch scan history:', err)
+      }
+    }
+    fetchHistory()
+  }, [])
 
   /**
    * Triggered when user clicks Start Scan
@@ -27,8 +43,9 @@ export default function DashboardContent() {
     try {
       const response = await axios.post(API_URL)
 
-      // assuming the API returns detection data directly
-      setScanResults(response.data)
+      setLatestScan(response.data)
+      // Add new scan to the beginning of the array
+      setAllScans(prevScans => [response.data, ...prevScans])
       setActiveTab('results')
     } catch (err: any) {
       console.error('Scan failed:', err)
@@ -90,13 +107,12 @@ export default function DashboardContent() {
         {activeTab === 'scan' && (
           <ScanInterface
             onScanStart={handleScanStart}
-            onScanComplete={setScanResults}
             isScanning={isScanning}
           />
         )}
 
-        {activeTab === 'results' && scanResults ? (
-          <DetectionResults results={scanResults} />
+        {activeTab === 'results' && latestScan ? (
+          <DetectionResults results={latestScan} />
         ) : activeTab === 'results' ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center">
             <p className="text-muted-foreground">
@@ -111,8 +127,8 @@ export default function DashboardContent() {
           </div>
         )}
 
-        {activeTab === 'logs' && <DetectionLogs />}
-        {activeTab === 'stats' && <ThreatStats />}
+        {activeTab === 'logs' && <DetectionLogs allScans={allScans} />}
+        {activeTab === 'stats' && <ThreatStats allScans={allScans} />}
       </motion.div>
     </div>
   )
