@@ -186,10 +186,6 @@ class NetworkScanner:
         try:
             print(f"Starting scan on {interface} for {duration} seconds...")
 
-            # Use channel hopping if no specific channels given
-            if channels is None:
-                channels = list(range(1, 14))  # WiFi channels 1-13 (valid worldwide)
-
             # Simple passive scan without channel hopping
             scapy.sniff(
                 iface=interface, prn=self.packet_handler, timeout=duration, store=False
