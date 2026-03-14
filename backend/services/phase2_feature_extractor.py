@@ -18,7 +18,6 @@ from datetime import datetime
 from typing import Dict, List
 
 import numpy as np
-
 from models.database import Database
 
 
@@ -51,7 +50,7 @@ class Phase2FeatureExtractor:
 
         # Pre-calculate SSID reuse counts (how many BSSIDs per SSID)
         ssid_counts = defaultdict(int)
-        for (ssid, bssid) in grouped.keys():
+        for ssid, bssid in grouped.keys():
             ssid_counts[ssid] += 1
 
         for key, observations in grouped.items():
@@ -98,7 +97,9 @@ class Phase2FeatureExtractor:
     # Feature calculation
     # -------------------------
 
-    def calculate_features(self, observations: List[Dict], ssid_bssid_count: int = 1) -> Dict:
+    def calculate_features(
+        self, observations: List[Dict], ssid_bssid_count: int = 1
+    ) -> Dict:
         """
         Calculate aggregated behavioral features for a single (ssid, bssid).
         """
@@ -135,42 +136,38 @@ class Phase2FeatureExtractor:
 
             if "timestamp" in obs:
                 timestamps.append(obs["timestamp"])
-            
+
             if "encryption" in obs:
                 encryptions.append(obs["encryption"])
-                
+
             if "authentication" in obs:
                 authentications.append(obs["authentication"])
 
         features = {
             "ssid": ssid,
             "bssid": bssid,
-
             # Signal statistics
             "avg_signal": float(np.mean(signals)) if signals else None,
             "signal_variance": float(np.std(signals)) if signals else None,
-
             # Channel statistics
             "avg_channel": self._mode(channels),
             "channel_variance": float(np.std(channels)) if len(channels) > 1 else 0.0,
-
             # Client statistics
-            "client_count_avg": float(np.mean(client_counts)) if client_counts else None,
+            "client_count_avg": (
+                float(np.mean(client_counts)) if client_counts else None
+            ),
             "client_count_max": int(max(client_counts)) if client_counts else None,
-
             # Security & Vendor
             "encryption": self._mode(encryptions),
             "authentication": self._mode(authentications),
             "vendor_oui": bssid[:8].upper() if bssid else None,
             "ssid_bssid_count": int(ssid_bssid_count),
-
             # Time statistics
             "first_seen": min(timestamps) if timestamps else None,
             "last_seen": max(timestamps) if timestamps else None,
             "observation_count": int(len(observations)),
-
             # Metadata
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.utcnow().isoformat(),
         }
 
         return features
@@ -187,16 +184,9 @@ class Phase2FeatureExtractor:
         - One document per (ssid, bssid)
         - Upsert allowed
         """
-        query = {
-            "ssid": features["ssid"],
-            "bssid": features["bssid"]
-        }
+        query = {"ssid": features["ssid"], "bssid": features["bssid"]}
 
-        self.features_collection.update_one(
-            query,
-            {"$set": features},
-            upsert=True
-        )
+        self.features_collection.update_one(query, {"$set": features}, upsert=True)
 
     # -------------------------
     # Utility helpers

@@ -1,9 +1,11 @@
 # backend/scripts/run_full_pipeline.py
 
 import time
+
 from services.phase1_scanner import Phase1Scanner
 from services.phase2_feature_extractor import Phase2FeatureExtractor
 from services.phase3_anomaly_engine import Phase3AnomalyEngine
+
 
 def main():
     print("[PIPELINE] Starting full NetGuard pipeline")
@@ -28,6 +30,7 @@ def main():
     Phase4DecisionEngine().run()
 
     print("[PIPELINE] Pipeline complete")
+
 
 if __name__ == "__main__":
     main()

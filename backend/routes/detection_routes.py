@@ -6,11 +6,11 @@ REST endpoints for ML-based threat detection and reporting.
 
 import logging
 import uuid
-
-from flask import Blueprint, request, jsonify
-from services.ml_inference import MLInference
-from models.database import Database
 from datetime import datetime, timezone
+
+from flask import Blueprint, jsonify, request
+from models.database import Database
+from services.ml_inference import MLInference
 from socket_server import socketio
 
 logger = logging.getLogger("netguard.routes.detection")
@@ -42,10 +42,15 @@ def predict_threat():
 
         engine = _get_engine()
         if not engine.model_loaded:
-            return jsonify({
-                "error": "ML models not loaded. Train models first.",
-                "info": engine.get_model_info(),
-            }), 503
+            return (
+                jsonify(
+                    {
+                        "error": "ML models not loaded. Train models first.",
+                        "info": engine.get_model_info(),
+                    }
+                ),
+                503,
+            )
 
         db = Database.get_db()
         known_networks = []
@@ -67,11 +72,15 @@ def predict_threat():
             db["detection_logs"].insert_one(detection_log)
 
             # Emit only safe data (no _id)
-            socketio.emit("detection_result", {
-                "detection_id": detection_log["detection_id"],
-                "timestamp": detection_log["timestamp"],
-                "summary": predictions.get("summary", {}),
-            }, broadcast=True)
+            socketio.emit(
+                "detection_result",
+                {
+                    "detection_id": detection_log["detection_id"],
+                    "timestamp": detection_log["timestamp"],
+                    "summary": predictions.get("summary", {}),
+                },
+                broadcast=True,
+            )
 
         return jsonify(predictions), 200
 
@@ -93,11 +102,13 @@ def generate_report():
 
         db = Database.get_db()
         if db is not None:
-            db["detection_logs"].insert_one({
-                "report_id": str(uuid.uuid4()),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "report": report,
-            })
+            db["detection_logs"].insert_one(
+                {
+                    "report_id": str(uuid.uuid4()),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "report": report,
+                }
+            )
 
         return jsonify(report), 200
 
@@ -111,10 +122,15 @@ def get_models_info():
     """Get info about loaded ML models."""
     try:
         engine = _get_engine()
-        return jsonify({
-            "models": engine.get_model_info(),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "models": engine.get_model_info(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -128,10 +144,15 @@ def reload_models():
         success = _engine.load_models()
 
         if success:
-            return jsonify({
-                "message": "Models reloaded successfully",
-                "info": _engine.get_model_info(),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Models reloaded successfully",
+                        "info": _engine.get_model_info(),
+                    }
+                ),
+                200,
+            )
         else:
             return jsonify({"error": "Failed to reload models"}), 503
 
@@ -155,10 +176,15 @@ def get_detection_history():
         for det in detections:
             det.pop("_id", None)
 
-        return jsonify({
-            "detections": detections,
-            "count": len(detections),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "detections": detections,
+                    "count": len(detections),
+                }
+            ),
+            200,
+        )
 
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500

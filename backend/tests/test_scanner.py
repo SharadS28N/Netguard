@@ -102,14 +102,22 @@ def test_rule_engine():
     engine = RuleEngine()
     networks = [
         {
-            "ssid": "TestNet", "bssid": "AA:BB:CC:DD:EE:FF",
-            "signal_strength": -45, "channel": 6,
-            "encryption": "WPA2", "vendor": "TP-Link", "is_hidden": False,
+            "ssid": "TestNet",
+            "bssid": "AA:BB:CC:DD:EE:FF",
+            "signal_strength": -45,
+            "channel": 6,
+            "encryption": "WPA2",
+            "vendor": "TP-Link",
+            "is_hidden": False,
         },
         {
-            "ssid": "TestNet", "bssid": "11:22:33:44:55:66",
-            "signal_strength": -40, "channel": 6,
-            "encryption": "Open", "vendor": "Unknown", "is_hidden": False,
+            "ssid": "TestNet",
+            "bssid": "11:22:33:44:55:66",
+            "signal_strength": -40,
+            "channel": 6,
+            "encryption": "Open",
+            "vendor": "Unknown",
+            "is_hidden": False,
         },
     ]
 

@@ -6,6 +6,7 @@ Environment-based configuration for development, testing, and production.
 
 import os
 import secrets
+
 from dotenv import load_dotenv
 
 load_dotenv()

@@ -38,9 +38,14 @@ def test_feature_extractor():
     extractor = FeatureExtractor()
     networks = [
         {
-            "ssid": "Test", "bssid": "AA:BB:CC:DD:EE:FF",
-            "signal_strength": -45, "channel": 6, "encryption": "WPA2",
-            "vendor": "TP-Link", "is_hidden": False, "frequency": 2437,
+            "ssid": "Test",
+            "bssid": "AA:BB:CC:DD:EE:FF",
+            "signal_strength": -45,
+            "channel": 6,
+            "encryption": "WPA2",
+            "vendor": "TP-Link",
+            "is_hidden": False,
+            "frequency": 2437,
         },
     ]
 

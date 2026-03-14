@@ -10,21 +10,21 @@ Data distributions based on:
 - Real-world AP behavior characteristics
 """
 
-import os
-import logging
 import json
-import numpy as np
+import logging
+import os
 from datetime import datetime, timezone
 from typing import Dict, Tuple
 
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, classification_report,
-)
 import joblib
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.metrics import (accuracy_score, classification_report,
+                             confusion_matrix, f1_score, precision_score,
+                             recall_score)
+from sklearn.model_selection import (StratifiedKFold, cross_val_score,
+                                     train_test_split)
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger("netguard.ml_trainer")
 
@@ -83,7 +83,9 @@ class MLTrainer:
 
         logger.info(
             "Generated %d training samples: %d legitimate, %d evil twin",
-            len(X), n_legit, n_evil,
+            len(X),
+            n_legit,
+            n_evil,
         )
         return X, y
 
@@ -143,8 +145,12 @@ class MLTrainer:
         """Train Random Forest with optimized hyperparameters."""
         logger.info("Training Random Forest...")
         rf = RandomForestClassifier(
-            n_estimators=150, max_depth=15, min_samples_split=5,
-            class_weight='balanced', random_state=42, n_jobs=-1
+            n_estimators=150,
+            max_depth=15,
+            min_samples_split=5,
+            class_weight="balanced",
+            random_state=42,
+            n_jobs=-1,
         )
         rf.fit(X_train, y_train)
         y_pred = rf.predict(X_test)
@@ -161,8 +167,11 @@ class MLTrainer:
         """Train Gradient Boosting with optimized hyperparameters."""
         logger.info("Training Gradient Boosting...")
         gb = GradientBoostingClassifier(
-            n_estimators=150, learning_rate=0.05, max_depth=6,
-            subsample=0.8, random_state=42
+            n_estimators=150,
+            learning_rate=0.05,
+            max_depth=6,
+            subsample=0.8,
+            random_state=42,
         )
         gb.fit(X_train, y_train)
         y_pred = gb.predict(X_test)
@@ -180,7 +189,7 @@ class MLTrainer:
         logger.info("Training Ensemble model...")
         rf = self.models.get("rf")
         gb = self.models.get("gb")
-        
+
         # Soft voting ensemble
         rf_proba = rf.predict_proba(X_test)[:, 1]
         gb_proba = gb.predict_proba(X_test)[:, 1]
@@ -215,7 +224,11 @@ class MLTrainer:
 
         # 2. Split
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y,
+            X,
+            y,
+            test_size=0.2,
+            random_state=42,
+            stratify=y,
         )
 
         # 3. Scale
@@ -223,13 +236,21 @@ class MLTrainer:
         X_test_scaled = self.scaler.transform(X_test)
 
         # 4. Train models
-        rf_result = self.train_random_forest(X_train_scaled, y_train, X_test_scaled, y_test)
-        gb_result = self.train_gradient_boosting(X_train_scaled, y_train, X_test_scaled, y_test)
-        ensemble_result = self.train_ensemble(X_train_scaled, y_train, X_test_scaled, y_test)
+        rf_result = self.train_random_forest(
+            X_train_scaled, y_train, X_test_scaled, y_test
+        )
+        gb_result = self.train_gradient_boosting(
+            X_train_scaled, y_train, X_test_scaled, y_test
+        )
+        ensemble_result = self.train_ensemble(
+            X_train_scaled, y_train, X_test_scaled, y_test
+        )
 
         # 5. Cross-validation
         cv_scores = cross_val_score(
-            rf_result["model"], X_train_scaled, y_train,
+            rf_result["model"],
+            X_train_scaled,
+            y_train,
             cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
             scoring="accuracy",
         )
@@ -276,14 +297,18 @@ class MLTrainer:
         paths = {}
         paths["rf"] = os.path.join(self.model_dir, f"rf_model_{timestamp}.pkl")
         joblib.dump(rf_result["model"], paths["rf"])
-        
+
         paths["gb"] = os.path.join(self.model_dir, f"gb_model_{timestamp}.pkl")
         joblib.dump(gb_result["model"], paths["gb"])
 
-        paths["ensemble_rf"] = os.path.join(self.model_dir, f"ensemble_rf_{timestamp}.pkl")
+        paths["ensemble_rf"] = os.path.join(
+            self.model_dir, f"ensemble_rf_{timestamp}.pkl"
+        )
         joblib.dump(ensemble_result["rf_model"], paths["ensemble_rf"])
 
-        paths["ensemble_gb"] = os.path.join(self.model_dir, f"ensemble_gb_{timestamp}.pkl")
+        paths["ensemble_gb"] = os.path.join(
+            self.model_dir, f"ensemble_gb_{timestamp}.pkl"
+        )
         joblib.dump(ensemble_result["gb_model"], paths["ensemble_gb"])
 
         paths["scaler"] = os.path.join(self.model_dir, f"scaler_{timestamp}.pkl")

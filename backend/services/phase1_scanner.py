@@ -16,7 +16,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 from models.database import Database
 
@@ -99,12 +99,7 @@ class Phase1Scanner:
         """
         command = ["netsh", "wlan", "show", "networks", "mode=bssid"]
 
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            shell=False
-        )
+        result = subprocess.run(command, capture_output=True, text=True, shell=False)
 
         return result.stdout
 

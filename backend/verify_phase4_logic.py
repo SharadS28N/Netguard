@@ -9,15 +9,24 @@ print("=" * 60)
 
 # Sample input from Phase 3
 signals = {
-    "signature": {"ssid_reuse": True, "encryption_weak": True, "vendor_mismatch": False, "channel_instability": False},
-    "behavior": {"signal_variance_high": True, "client_spike": False, "unstable_presence": True},
-    "ml": {"is_outlier": True}
+    "signature": {
+        "ssid_reuse": True,
+        "encryption_weak": True,
+        "vendor_mismatch": False,
+        "channel_instability": False,
+    },
+    "behavior": {
+        "signal_variance_high": True,
+        "client_spike": False,
+        "unstable_presence": True,
+    },
+    "ml": {"is_outlier": True},
 }
 
 # Expected scores
 signature_score = 2 / 4  # 2 TRUE out of 4
-behavior_score = 2 / 3   # 2 TRUE out of 3
-ml_score = 1.0           # is_outlier = True
+behavior_score = 2 / 3  # 2 TRUE out of 3
+ml_score = 1.0  # is_outlier = True
 
 print(f"Signature Score: {signature_score:.4f} (Expected: 0.5000)")
 print(f"Behavior Score: {behavior_score:.4f} (Expected: 0.6667)")
@@ -34,12 +43,18 @@ print("TEST 2: Weighted Confidence Computation")
 print("=" * 60)
 
 weights = {"signature": 0.4, "behavior": 0.3, "ml": 0.3}
-confidence = (signature_score * weights["signature"] + 
-              behavior_score * weights["behavior"] + 
-              ml_score * weights["ml"])
+confidence = (
+    signature_score * weights["signature"]
+    + behavior_score * weights["behavior"]
+    + ml_score * weights["ml"]
+)
 
-print(f"Formula: ({signature_score:.4f} × 0.4) + ({behavior_score:.4f} × 0.3) + ({ml_score:.4f} × 0.3)")
-print(f"       = {signature_score * 0.4:.4f} + {behavior_score * 0.3:.4f} + {ml_score * 0.3:.4f}")
+print(
+    f"Formula: ({signature_score:.4f} × 0.4) + ({behavior_score:.4f} × 0.3) + ({ml_score:.4f} × 0.3)"
+)
+print(
+    f"       = {signature_score * 0.4:.4f} + {behavior_score * 0.3:.4f} + {ml_score * 0.3:.4f}"
+)
 print(f"       = {confidence:.4f}")
 
 expected_confidence = 0.2 + 0.2 + 0.3  # Approximately 0.7
@@ -56,8 +71,9 @@ thresholds = {
     "benign": (0.0, 0.3),
     "suspicious": (0.3, 0.6),
     "likely_evil_twin": (0.6, 0.8),
-    "confirmed_evil_twin": (0.8, 1.0)
+    "confirmed_evil_twin": (0.8, 1.0),
 }
+
 
 def determine_verdict(conf):
     for verdict, (low, high) in thresholds.items():
@@ -67,12 +83,13 @@ def determine_verdict(conf):
         return "confirmed_evil_twin"
     return "benign"
 
+
 test_cases = [
     (0.2, "benign"),
     (0.45, "suspicious"),
     (0.7, "likely_evil_twin"),
     (0.9, "confirmed_evil_twin"),
-    (confidence, "likely_evil_twin")  # Our calculated confidence
+    (confidence, "likely_evil_twin"),  # Our calculated confidence
 ]
 
 for conf, expected in test_cases:
@@ -93,7 +110,7 @@ explanations_map = {
     "encryption_weak": "Weak or no encryption detected",
     "signal_variance_high": "Unstable signal behavior observed",
     "unstable_presence": "Network appears and disappears frequently",
-    "is_outlier": "ML model flagged this AP as anomalous"
+    "is_outlier": "ML model flagged this AP as anomalous",
 }
 
 expected_explanations = [
@@ -101,7 +118,7 @@ expected_explanations = [
     "Weak or no encryption detected",
     "Unstable signal behavior observed",
     "Network appears and disappears frequently",
-    "ML model flagged this AP as anomalous"
+    "ML model flagged this AP as anomalous",
 ]
 
 print("Expected Explanations:")
@@ -119,7 +136,7 @@ threat_levels = {
     "benign": "low",
     "suspicious": "medium",
     "likely_evil_twin": "high",
-    "confirmed_evil_twin": "critical"
+    "confirmed_evil_twin": "critical",
 }
 
 verdict = determine_verdict(confidence)

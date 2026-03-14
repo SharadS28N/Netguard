@@ -6,10 +6,10 @@ Exposes the complete training + detection pipeline as REST endpoints.
 
 import logging
 import traceback
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from models.database import Database
-from datetime import datetime, timezone
 
 logger = logging.getLogger("netguard.routes.pipeline")
 
@@ -23,7 +23,7 @@ def run_full_pipeline():
     Returns all detected threats (not just suspicious).
     """
     try:
-        from train_models import train_models, run_detection_pipeline
+        from train_models import run_detection_pipeline, train_models
 
         db = Database.get_db()
         if db is None:
@@ -33,7 +33,7 @@ def run_full_pipeline():
         data = request.get_json(silent=True) or {}
         scan_duration = data.get("scan_duration", 3)
         skip_training = data.get("skip_training", False)
-        clear_data = data.get("clear_data", True) # Default to fresh scan
+        clear_data = data.get("clear_data", True)  # Default to fresh scan
 
         if clear_data:
             logger.info("Pipeline: clearing old raw scans and baseline features...")
@@ -44,25 +44,37 @@ def run_full_pipeline():
         if not skip_training:
             logger.info("Pipeline: training models...")
             if not train_models():
-                return jsonify({
-                    "status": "error",
-                    "message": "Model training failed",
-                }), 500
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": "Model training failed",
+                        }
+                    ),
+                    500,
+                )
 
         # STEP 2: Run detection pipeline
         logger.info("Pipeline: running detection (scan=%ds)...", scan_duration)
         if not run_detection_pipeline(scan_duration=scan_duration):
-            return jsonify({
-                "status": "error",
-                "message": "Detection pipeline failed",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "Detection pipeline failed",
+                    }
+                ),
+                500,
+            )
 
         # STEP 3: Fetch all threats (not just suspicious)
         threats = list(
-            db["threats"].find(
+            db["threats"]
+            .find(
                 {},
                 {"_id": 0},
-            ).sort("confidence", -1)
+            )
+            .sort("confidence", -1)
         )
 
         # Summary stats
@@ -78,9 +90,9 @@ def run_full_pipeline():
                 verdict_counts["suspicious"] += 1
             else:
                 verdict_counts["safe"] += 1
-            
+
             total_confidence += t.get("confidence", 0)
-            
+
             # Aggregate methodology scores
             layer_scores = t.get("layer_scores", {})
             methodology_counts["signature"] += layer_scores.get("signature", 0)
@@ -89,28 +101,42 @@ def run_full_pipeline():
 
         avg_confidence = total_confidence / len(threats) if threats else 0
 
-        return jsonify({
-            "status": "success",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "count": len(threats),
-            "summary": {
-                **verdict_counts,
-                "avg_confidence": avg_confidence,
-                "methodology_averages": {
-                    k: (v / len(threats) * 100) if threats else 0 
-                    for k, v in methodology_counts.items()
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "count": len(threats),
+                    "summary": {
+                        **verdict_counts,
+                        "avg_confidence": avg_confidence,
+                        "methodology_averages": {
+                            k: (v / len(threats) * 100) if threats else 0
+                            for k, v in methodology_counts.items()
+                        },
+                    },
+                    "data": threats,
                 }
-            },
-            "data": threats,
-        }), 200
+            ),
+            200,
+        )
 
     except Exception as exc:
         logger.error("Pipeline error: %s", exc, exc_info=True)
-        return jsonify({
-            "status": "error",
-            "message": str(exc),
-            "traceback": traceback.format_exc() if logger.isEnabledFor(logging.DEBUG) else None,
-        }), 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                    "traceback": (
+                        traceback.format_exc()
+                        if logger.isEnabledFor(logging.DEBUG)
+                        else None
+                    ),
+                }
+            ),
+            500,
+        )
 
 
 @pipeline_bp.route("/quick-scan", methods=["POST"])
@@ -129,21 +155,29 @@ def quick_scan():
         scan_duration = data.get("scan_duration", 3)
 
         if not run_detection_pipeline(scan_duration=scan_duration):
-            return jsonify({
-                "status": "error",
-                "message": "Quick scan failed",
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "Quick scan failed",
+                    }
+                ),
+                500,
+            )
 
-        threats = list(
-            db["threats"].find({}, {"_id": 0}).sort("confidence", -1)
+        threats = list(db["threats"].find({}, {"_id": 0}).sort("confidence", -1))
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "count": len(threats),
+                    "data": threats,
+                }
+            ),
+            200,
         )
-
-        return jsonify({
-            "status": "success",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "count": len(threats),
-            "data": threats,
-        }), 200
 
     except Exception as exc:
         logger.error("Quick scan error: %s", exc, exc_info=True)

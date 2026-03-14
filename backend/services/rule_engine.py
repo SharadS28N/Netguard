@@ -6,8 +6,8 @@ vendor validation, and SSID/BSSID heuristics.
 """
 
 import logging
-from typing import List, Dict, Any
 from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 logger = logging.getLogger("netguard.rule_engine")
 
@@ -45,48 +45,62 @@ class RuleEngine:
                     # Potential evil twin: one variant is OPEN while others are secure
                     for v in variants:
                         if v.get("security") == "OPEN":
-                            threats.append(RuleEngine._create_threat(
-                                v,
-                                "Security Downgrade",
-                                "Network with same SSID is OPEN while others are encrypted.",
-                                0.95
-                            ))
+                            threats.append(
+                                RuleEngine._create_threat(
+                                    v,
+                                    "Security Downgrade",
+                                    "Network with same SSID is OPEN while others are encrypted.",
+                                    0.95,
+                                )
+                            )
 
             for net in variants:
                 # Rule 2: Suspicious Security (OPEN or WEP)
                 security = net.get("security", "OPEN").upper()
                 if security in ["OPEN", "WEP"]:
-                    threats.append(RuleEngine._create_threat(
-                        net,
-                        "Insecure Protocol",
-                        f"Network uses insecure {security} encryption.",
-                        0.40 if security == "OPEN" else 0.60
-                    ))
+                    threats.append(
+                        RuleEngine._create_threat(
+                            net,
+                            "Insecure Protocol",
+                            f"Network uses insecure {security} encryption.",
+                            0.40 if security == "OPEN" else 0.60,
+                        )
+                    )
 
                 # Rule 3: Hidden SSID
                 if net.get("ssid") == "<HIDDEN>" or not net.get("ssid"):
-                    threats.append(RuleEngine._create_threat(
-                        net,
-                        "Hidden Network",
-                        "Network is hiding its SSID, often used by attackers to stay stealthy.",
-                        0.30
-                    ))
+                    threats.append(
+                        RuleEngine._create_threat(
+                            net,
+                            "Hidden Network",
+                            "Network is hiding its SSID, often used by attackers to stay stealthy.",
+                            0.30,
+                        )
+                    )
 
                 # Rule 4: Suspicious Vendor (OUI Lookup)
                 vendor = net.get("vendor", "Unknown").lower()
-                suspicious_vendors = ["unknown", "generic", "espressif"] # ESP chips are common in rogue APs
+                suspicious_vendors = [
+                    "unknown",
+                    "generic",
+                    "espressif",
+                ]  # ESP chips are common in rogue APs
                 if vendor in suspicious_vendors:
-                    threats.append(RuleEngine._create_threat(
-                        net,
-                        "Untrusted Vendor",
-                        f"Network hardware vendor '{vendor}' is suspicious or unknown.",
-                        0.25
-                    ))
+                    threats.append(
+                        RuleEngine._create_threat(
+                            net,
+                            "Untrusted Vendor",
+                            f"Network hardware vendor '{vendor}' is suspicious or unknown.",
+                            0.25,
+                        )
+                    )
 
         return threats
 
     @staticmethod
-    def _create_threat(net: Dict[str, Any], type_str: str, desc: str, score: float) -> Dict[str, Any]:
+    def _create_threat(
+        net: Dict[str, Any], type_str: str, desc: str, score: float
+    ) -> Dict[str, Any]:
         """Helper to format a threat object."""
         return {
             "ssid": net.get("ssid", "<HIDDEN>"),
@@ -99,6 +113,6 @@ class RuleEngine:
             "metadata": {
                 "signal": net.get("signal_dbm", -100),
                 "channel": net.get("channel", 0),
-                "security": net.get("security", "UNKNOWN")
-            }
+                "security": net.get("security", "UNKNOWN"),
+            },
         }

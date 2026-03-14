@@ -4,6 +4,7 @@ Pytest configuration and fixtures for Netguard tests.
 
 import os
 import sys
+
 import pytest
 
 # Add backend directory to path
@@ -19,8 +20,9 @@ def app():
     )
     os.environ["MONGODB_DB"] = "netguard_test"
 
-    from app import create_app
     from config import TestingConfig
+
+    from app import create_app
 
     application = create_app(config=TestingConfig())
     yield application

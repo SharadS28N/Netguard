@@ -5,13 +5,13 @@ REST endpoints for WiFi scanning using cross-platform WiFiScanner.
 """
 
 import logging
-import uuid
 import threading
-
-from flask import Blueprint, request, jsonify
-from services.wifi_scanner import WiFiScanner
-from models.database import Database
+import uuid
 from datetime import datetime, timezone
+
+from flask import Blueprint, jsonify, request
+from models.database import Database
+from services.wifi_scanner import WiFiScanner
 from socket_server import socketio
 
 logger = logging.getLogger("netguard.routes.scan")
@@ -52,11 +52,15 @@ def start_scan():
         if db is not None:
             db["scans"].insert_one(scan_doc)
 
-        socketio.emit("scan_status", {
-            "scan_id": scan_id,
-            "status": "in_progress",
-            "duration": duration,
-        }, broadcast=True)
+        socketio.emit(
+            "scan_status",
+            {
+                "scan_id": scan_id,
+                "status": "in_progress",
+                "duration": duration,
+            },
+            broadcast=True,
+        )
 
         # Run scan in background
         def _run():
@@ -81,45 +85,62 @@ def start_scan():
                     # Update scan record
                     db["scans"].update_one(
                         {"scan_id": scan_id},
-                        {"$set": {
-                            "status": "completed",
-                            "completed_at": completed_at,
-                            "networks_found": len(networks),
-                            "results": {"networks": networks},
-                        }},
+                        {
+                            "$set": {
+                                "status": "completed",
+                                "completed_at": completed_at,
+                                "networks_found": len(networks),
+                                "results": {"networks": networks},
+                            }
+                        },
                     )
 
-                socketio.emit("scan_status", {
-                    "scan_id": scan_id,
-                    "status": "completed",
-                    "networks_found": len(networks),
-                    "completed_at": completed_at,
-                }, broadcast=True)
+                socketio.emit(
+                    "scan_status",
+                    {
+                        "scan_id": scan_id,
+                        "status": "completed",
+                        "networks_found": len(networks),
+                        "completed_at": completed_at,
+                    },
+                    broadcast=True,
+                )
 
             except Exception as exc:
                 logger.error("Scan %s failed: %s", scan_id, exc)
                 if db is not None:
                     db["scans"].update_one(
                         {"scan_id": scan_id},
-                        {"$set": {
-                            "status": "failed",
-                            "error": str(exc),
-                        }},
+                        {
+                            "$set": {
+                                "status": "failed",
+                                "error": str(exc),
+                            }
+                        },
                     )
-                socketio.emit("scan_status", {
-                    "scan_id": scan_id,
-                    "status": "failed",
-                    "error": str(exc),
-                }, broadcast=True)
+                socketio.emit(
+                    "scan_status",
+                    {
+                        "scan_id": scan_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    },
+                    broadcast=True,
+                )
 
         thread = threading.Thread(target=_run, daemon=True)
         thread.start()
 
-        return jsonify({
-            "scan_id": scan_id,
-            "status": "started",
-            "message": f"Scan started for {duration} seconds",
-        }), 200
+        return (
+            jsonify(
+                {
+                    "scan_id": scan_id,
+                    "status": "started",
+                    "message": f"Scan started for {duration} seconds",
+                }
+            ),
+            200,
+        )
 
     except Exception as exc:
         logger.error("start_scan error: %s", exc)
@@ -140,25 +161,32 @@ def quick_scan():
         db = Database.get_db()
         scan_id = str(uuid.uuid4())
         if db is not None:
-            db["scans"].insert_one({
-                "scan_id": scan_id,
-                "status": "completed",
-                "started_at": datetime.now(timezone.utc).isoformat(),
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-                "networks_found": len(networks),
-                "threats_detected": len(threats),
-            })
+            db["scans"].insert_one(
+                {
+                    "scan_id": scan_id,
+                    "status": "completed",
+                    "started_at": datetime.now(timezone.utc).isoformat(),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "networks_found": len(networks),
+                    "threats_detected": len(threats),
+                }
+            )
 
-        return jsonify({
-            "scan_id": scan_id,
-            "networks": networks,
-            "threats": threats,
-            "summary": {
-                "total_networks": len(networks),
-                "threats_detected": len(threats),
-                "scan_method": scanner.scan_method,
-            },
-        }), 200
+        return (
+            jsonify(
+                {
+                    "scan_id": scan_id,
+                    "networks": networks,
+                    "threats": threats,
+                    "summary": {
+                        "total_networks": len(networks),
+                        "threats_detected": len(threats),
+                        "scan_method": scanner.scan_method,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as exc:
         logger.error("quick_scan error: %s", exc)
@@ -170,11 +198,16 @@ def get_interfaces():
     """Get available WiFi scanning method and status."""
     try:
         scanner = _get_scanner()
-        return jsonify({
-            "scan_method": scanner.scan_method,
-            "platform": __import__("platform").system(),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "scan_method": scanner.scan_method,
+                    "platform": __import__("platform").system(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            ),
+            200,
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -211,19 +244,29 @@ def get_scan_results(scan_id):
             return jsonify({"error": "Scan not found"}), 404
 
         if scan.get("status") != "completed":
-            return jsonify({
-                "error": "Scan not completed",
-                "status": scan.get("status"),
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Scan not completed",
+                        "status": scan.get("status"),
+                    }
+                ),
+                400,
+            )
 
-        return jsonify({
-            "scan_id": scan_id,
-            "networks": scan.get("results", {}).get("networks", []),
-            "summary": {
-                "total_networks": scan.get("networks_found", 0),
-                "threats_detected": scan.get("threats_detected", 0),
-            },
-        }), 200
+        return (
+            jsonify(
+                {
+                    "scan_id": scan_id,
+                    "networks": scan.get("results", {}).get("networks", []),
+                    "summary": {
+                        "total_networks": scan.get("networks_found", 0),
+                        "threats_detected": scan.get("threats_detected", 0),
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
@@ -264,22 +307,26 @@ def _analyze_threats(networks):
     for ssid, nets in ssid_map.items():
         if len(nets) > 1:
             for net in nets:
-                threats.append({
-                    "bssid": net["bssid"],
-                    "ssid": ssid,
-                    "threat_type": "evil_twin",
-                    "confidence": 0.7,
-                    "reason": f"Duplicate SSID ({len(nets)} APs)",
-                })
+                threats.append(
+                    {
+                        "bssid": net["bssid"],
+                        "ssid": ssid,
+                        "threat_type": "evil_twin",
+                        "confidence": 0.7,
+                        "reason": f"Duplicate SSID ({len(nets)} APs)",
+                    }
+                )
 
     for net in networks:
         if net.get("encryption") in ("Open", "WEP", "None", ""):
-            threats.append({
-                "bssid": net["bssid"],
-                "ssid": net.get("ssid"),
-                "threat_type": "weak_encryption",
-                "confidence": 0.6,
-                "reason": f"Weak encryption: {net.get('encryption', 'Open')}",
-            })
+            threats.append(
+                {
+                    "bssid": net["bssid"],
+                    "ssid": net.get("ssid"),
+                    "threat_type": "weak_encryption",
+                    "confidence": 0.6,
+                    "reason": f"Weak encryption: {net.get('encryption', 'Open')}",
+                }
+            )
 
     return threats

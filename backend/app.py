@@ -5,17 +5,16 @@ Production-grade Flask application with factory pattern,
 structured logging, health checks, and clean startup order.
 """
 
+import logging
 import os
 import sys
-import logging
 import uuid
 from datetime import datetime, timezone
 
-from flask import Flask, request, jsonify, g
-from flask_cors import CORS
-from dotenv import load_dotenv
-
 from config import get_config, validate_config
+from dotenv import load_dotenv
+from flask import Flask, g, jsonify, request
+from flask_cors import CORS
 from models.database import Database
 from socket_server import socketio
 
@@ -100,12 +99,17 @@ def create_app(config=None) -> Flask:
     @app.route("/", methods=["GET"])
     def index():
         """Root endpoint - redirect to health or show welcome."""
-        return jsonify({
-            "message": "Netguard Backend API is running",
-            "health_check": "/health",
-            "version": "1.0.0",
-            "status": "online"
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Netguard Backend API is running",
+                    "health_check": "/health",
+                    "version": "1.0.0",
+                    "status": "online",
+                }
+            ),
+            200,
+        )
 
     # 7. Register blueprints
     _register_blueprints(app, logger)
@@ -128,42 +132,49 @@ def _register_blueprints(app: Flask, logger: logging.Logger):
 
     try:
         from routes.scan_routes import scan_bp
+
         blueprints.append(("scan", scan_bp))
     except ImportError as e:
         logger.warning("Could not load scan_routes: %s", e)
 
     try:
         from routes.detection_routes import detection_bp
+
         blueprints.append(("detection", detection_bp))
     except ImportError as e:
         logger.warning("Could not load detection_routes: %s", e)
 
     try:
         from routes.logs_routes import logs_bp
+
         blueprints.append(("logs", logs_bp))
     except ImportError as e:
         logger.warning("Could not load logs_routes: %s", e)
 
     try:
         from routes.model_routes import model_bp
+
         blueprints.append(("model", model_bp))
     except ImportError as e:
         logger.warning("Could not load model_routes: %s", e)
 
     try:
         from routes.training_routes import training_bp
+
         blueprints.append(("training", training_bp))
     except ImportError as e:
         logger.warning("Could not load training_routes: %s", e)
 
     try:
         from routes.pipeline_routes import pipeline_bp
+
         blueprints.append(("pipeline", pipeline_bp))
     except ImportError as e:
         logger.warning("Could not load pipeline_routes: %s", e)
 
     try:
         from routes.phase2_routes import phase2_bp
+
         blueprints.append(("phase2", phase2_bp))
     except ImportError as e:
         logger.warning("Could not load phase2_routes: %s", e)
@@ -203,10 +214,19 @@ def _register_error_handlers(app: Flask):
 
     @app.errorhandler(400)
     def bad_request(error):
-        return jsonify({
-            "error": "Bad Request",
-            "message": str(error.description) if hasattr(error, "description") else str(error),
-        }), 400
+        return (
+            jsonify(
+                {
+                    "error": "Bad Request",
+                    "message": (
+                        str(error.description)
+                        if hasattr(error, "description")
+                        else str(error)
+                    ),
+                }
+            ),
+            400,
+        )
 
     @app.errorhandler(404)
     def not_found(error):
@@ -214,18 +234,28 @@ def _register_error_handlers(app: Flask):
 
     @app.errorhandler(405)
     def method_not_allowed(error):
-        return jsonify({
-            "error": "Method not allowed",
-            "method": request.method,
-            "path": request.path,
-        }), 405
+        return (
+            jsonify(
+                {
+                    "error": "Method not allowed",
+                    "method": request.method,
+                    "path": request.path,
+                }
+            ),
+            405,
+        )
 
     @app.errorhandler(500)
     def internal_error(error):
-        return jsonify({
-            "error": "Internal server error",
-            "message": "An unexpected error occurred",
-        }), 500
+        return (
+            jsonify(
+                {
+                    "error": "Internal server error",
+                    "message": "An unexpected error occurred",
+                }
+            ),
+            500,
+        )
 
 
 # ─── Health Routes ───────────────────────────────────────────
@@ -247,15 +277,17 @@ def _register_health_routes(app: Flask, cfg):
 
         status = "healthy" if db_ok else "degraded"
 
-        return jsonify({
-            "status": status,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "environment": cfg.ENVIRONMENT,
-            "checks": {
-                "mongodb": "connected" if db_ok else "disconnected",
-                "models_loaded": len(model_files),
-            },
-        }), 200 if db_ok else 503
+        return jsonify(
+            {
+                "status": status,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "environment": cfg.ENVIRONMENT,
+                "checks": {
+                    "mongodb": "connected" if db_ok else "disconnected",
+                    "models_loaded": len(model_files),
+                },
+            }
+        ), (200 if db_ok else 503)
 
     @app.route("/api/system/info", methods=["GET"])
     def system_info():
@@ -264,17 +296,27 @@ def _register_health_routes(app: Flask, cfg):
             import psutil
 
             disk_path = "C:\\" if os.name == "nt" else "/"
-            return jsonify({
-                "cpu_percent": psutil.cpu_percent(interval=0.1),
-                "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": psutil.disk_usage(disk_path).percent,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "cpu_percent": psutil.cpu_percent(interval=0.1),
+                        "memory_percent": psutil.virtual_memory().percent,
+                        "disk_percent": psutil.disk_usage(disk_path).percent,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ),
+                200,
+            )
         except ImportError:
-            return jsonify({
-                "error": "psutil not installed",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "error": "psutil not installed",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ),
+                200,
+            )
 
 
 # ─── Entry Point ─────────────────────────────────────────────

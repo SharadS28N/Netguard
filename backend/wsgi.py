@@ -36,30 +36,46 @@ def main():
         print(f"Starting Waitress server on http://{host}:{port}")
         try:
             from waitress import serve
+
             serve(app, host=host, port=port)
         except ImportError:
-            print("ERROR: waitress is not installed. Run 'pip install waitress'.", file=sys.stderr)
+            print(
+                "ERROR: waitress is not installed. Run 'pip install waitress'.",
+                file=sys.stderr,
+            )
             sys.exit(1)
     else:
         # Assume Linux or macOS, use Gunicorn
         workers = (os.cpu_count() or 1) * 2 + 1
-        print(f"Starting Gunicorn server on http://{host}:{port} with {workers} workers")
+        print(
+            f"Starting Gunicorn server on http://{host}:{port} with {workers} workers"
+        )
 
         try:
             # Verify gunicorn is available
-            subprocess.run(["gunicorn", "--version"], check=True, capture_output=True, text=True)
+            subprocess.run(
+                ["gunicorn", "--version"], check=True, capture_output=True, text=True
+            )
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("ERROR: gunicorn is not installed. Run 'pip install gunicorn'.", file=sys.stderr)
+            print(
+                "ERROR: gunicorn is not installed. Run 'pip install gunicorn'.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         # Construct Gunicorn command
         args = [
             "gunicorn",
-            "--bind", f"{host}:{port}",
-            "--workers", str(workers),
-            "--log-level", "info",
-            "--access-logfile", "-",
-            "--error-logfile", "-",
+            "--bind",
+            f"{host}:{port}",
+            "--workers",
+            str(workers),
+            "--log-level",
+            "info",
+            "--access-logfile",
+            "-",
+            "--error-logfile",
+            "-",
             "wsgi:app",
         ]
         if is_debug:
@@ -73,6 +89,7 @@ def main():
         except Exception as e:
             print(f"Failed to start Gunicorn: {e}", file=sys.stderr)
             sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

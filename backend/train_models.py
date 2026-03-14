@@ -9,10 +9,10 @@ Orchestrates the full ML + detection pipeline:
 5. Phase 4: Decision Engine (Final verdicts)
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 
 from dotenv import load_dotenv
 
@@ -52,7 +52,8 @@ def train_models(model_dir: str = "./models") -> bool:
         cv = results.get("cross_validation", {})
         logger.info(
             "  Cross-validation: %.4f ± %.4f",
-            cv.get("mean_accuracy", 0), cv.get("std", 0),
+            cv.get("mean_accuracy", 0),
+            cv.get("std", 0),
         )
 
         logger.info("Models saved to %s", model_dir)

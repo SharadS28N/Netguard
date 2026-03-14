@@ -1,8 +1,9 @@
-from services.phase1_scanner import Phase1Scanner
-from models.database import Database
-import time
 import os
+import time
+
 from dotenv import load_dotenv
+from models.database import Database
+from services.phase1_scanner import Phase1Scanner
 
 # Load environment
 load_dotenv()

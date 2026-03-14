@@ -5,18 +5,15 @@ Thread-safe MongoDB connection manager with Atlas support,
 connection pooling, retry logic, and index management.
 """
 
+import logging
 import os
 import time
-import logging
 from threading import Lock
 from typing import Optional
 
-from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import (
-    ConnectionFailure,
-    ServerSelectionTimeoutError,
-    OperationFailure,
-)
+from pymongo import ASCENDING, DESCENDING, MongoClient
+from pymongo.errors import (ConnectionFailure, OperationFailure,
+                            ServerSelectionTimeoutError)
 
 logger = logging.getLogger("netguard.database")
 
@@ -67,7 +64,9 @@ class Database:
 
             for attempt in range(1, max_retries + 1):
                 try:
-                    logger.info("MongoDB connection attempt %d/%d...", attempt, max_retries)
+                    logger.info(
+                        "MongoDB connection attempt %d/%d...", attempt, max_retries
+                    )
 
                     cls._client = MongoClient(
                         cls._uri,
@@ -87,7 +86,11 @@ class Database:
 
                     logger.info(
                         "Connected to MongoDB: %s (database: %s)",
-                        cls._uri.split("@")[-1].split("/")[0] if "@" in cls._uri else "localhost",
+                        (
+                            cls._uri.split("@")[-1].split("/")[0]
+                            if "@" in cls._uri
+                            else "localhost"
+                        ),
                         cls._db_name,
                     )
 
@@ -96,7 +99,7 @@ class Database:
                     return True
 
                 except (ConnectionFailure, ServerSelectionTimeoutError) as exc:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     logger.warning(
                         "Connection attempt %d failed: %s. Retrying in %ds...",
                         attempt,
@@ -106,14 +109,17 @@ class Database:
                     if attempt < max_retries:
                         time.sleep(wait)
                     else:
-                        logger.error("Failed to connect to MongoDB after %d attempts", max_retries)
-                        cls._client = None # Ensure client is None on failure
+                        logger.error(
+                            "Failed to connect to MongoDB after %d attempts",
+                            max_retries,
+                        )
+                        cls._client = None  # Ensure client is None on failure
                         cls._db = None
                         return False
 
                 except Exception as exc:
                     logger.error("Unexpected database error during connection: %s", exc)
-                    cls._client = None # Ensure client is None on failure
+                    cls._client = None  # Ensure client is None on failure
                     cls._db = None
                     return False
         return False
@@ -213,8 +219,9 @@ class Database:
                     db.create_collection(collection_name)
                     logger.info("Created collection: %s", collection_name)
                 except OperationFailure as e:
-                    logger.warning("Could not create collection %s: %s", collection_name, e)
-
+                    logger.warning(
+                        "Could not create collection %s: %s", collection_name, e
+                    )
 
             for index_keys, index_opts in indexes:
                 try:
@@ -226,4 +233,3 @@ class Database:
                     )
 
         logger.info("Database indexes verified")
-
