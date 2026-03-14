@@ -7,13 +7,11 @@ Generates all benchmarks and visualizations for presentation
 import glob
 import json
 import os
-import sys
 from datetime import datetime
 
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from sklearn.metrics import (
     auc,
@@ -222,7 +220,7 @@ def plot_model_accuracy_comparison(models, X_test, y_test):
         f"{OUTPUT_DIR}/01_model_accuracy_comparison.png", dpi=300, bbox_inches="tight"
     )
     plt.close()
-    print(f"✓ Saved: 01_model_accuracy_comparison.png")
+    print("✓ Saved: 01_model_accuracy_comparison.png")
 
 
 def plot_confusion_matrices(models, X_test, y_test):
@@ -257,7 +255,7 @@ def plot_confusion_matrices(models, X_test, y_test):
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/02_confusion_matrices.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✓ Saved: 02_confusion_matrices.png")
+    print("✓ Saved: 02_confusion_matrices.png")
 
 
 def plot_roc_curves(models, X_test, y_test):
@@ -301,7 +299,7 @@ def plot_roc_curves(models, X_test, y_test):
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/03_roc_curves.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✓ Saved: 03_roc_curves.png")
+    print("✓ Saved: 03_roc_curves.png")
 
 
 def plot_precision_recall_curves(models, X_test, y_test):
@@ -345,7 +343,7 @@ def plot_precision_recall_curves(models, X_test, y_test):
         f"{OUTPUT_DIR}/04_precision_recall_curves.png", dpi=300, bbox_inches="tight"
     )
     plt.close()
-    print(f"✓ Saved: 04_precision_recall_curves.png")
+    print("✓ Saved: 04_precision_recall_curves.png")
 
 
 def plot_feature_importance(models, X_test):
@@ -399,7 +397,7 @@ def plot_feature_importance(models, X_test):
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/05_feature_importance.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✓ Saved: 05_feature_importance.png")
+    print("✓ Saved: 05_feature_importance.png")
 
 
 def plot_cross_validation_scores(models, X, y):
@@ -459,7 +457,7 @@ def plot_cross_validation_scores(models, X, y):
         f"{OUTPUT_DIR}/06_cross_validation_scores.png", dpi=300, bbox_inches="tight"
     )
     plt.close()
-    print(f"✓ Saved: 06_cross_validation_scores.png")
+    print("✓ Saved: 06_cross_validation_scores.png")
 
 
 def plot_confidence_distribution(models, X_test):
@@ -513,7 +511,7 @@ def plot_confidence_distribution(models, X_test):
         f"{OUTPUT_DIR}/07_confidence_distribution.png", dpi=300, bbox_inches="tight"
     )
     plt.close()
-    print(f"✓ Saved: 07_confidence_distribution.png")
+    print("✓ Saved: 07_confidence_distribution.png")
 
 
 def plot_detection_pipeline_metrics():
@@ -576,7 +574,7 @@ def plot_detection_pipeline_metrics():
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/08_pipeline_metrics.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✓ Saved: 08_pipeline_metrics.png")
+    print("✓ Saved: 08_pipeline_metrics.png")
 
 
 def plot_threat_level_distribution():
@@ -628,7 +626,7 @@ def plot_threat_level_distribution():
         f"{OUTPUT_DIR}/09_threat_distribution.png", dpi=300, bbox_inches="tight"
     )
     plt.close()
-    print(f"✓ Saved: 09_threat_distribution.png")
+    print("✓ Saved: 09_threat_distribution.png")
 
 
 def generate_summary_report(models, X_test, y_test):
@@ -689,8 +687,8 @@ def generate_summary_report(models, X_test, y_test):
     with open(f"{OUTPUT_DIR}/PERFORMANCE_REPORT.md", "w") as f:
         f.write(md_report)
 
-    print(f"✓ Saved: model_performance_report.json")
-    print(f"✓ Saved: PERFORMANCE_REPORT.md")
+    print("✓ Saved: model_performance_report.json")
+    print("✓ Saved: PERFORMANCE_REPORT.md")
 
 
 def main():
