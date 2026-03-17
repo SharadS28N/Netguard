@@ -23,7 +23,7 @@ class BaseConfig:
     # MongoDB
     MONGODB_URI = os.getenv(
         "MONGODB_URI",
-        "mongodb+srv://REPLACE_USER:REPLACE_PASSWORD@REPLACE_CLUSTER.mongodb.net/?retryWrites=true&w=majority",
+        "mongodb+srv://netguard:netguard@cioetok.mongodb.net/?retryWrites=true&w=majority",
     )
     MONGODB_DB = os.getenv("MONGODB_DB", "netguard")
 

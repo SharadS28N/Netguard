@@ -13,6 +13,7 @@ from typing import Optional
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.errors import (
+    ConfigurationError,
     ConnectionFailure,
     OperationFailure,
     ServerSelectionTimeoutError,
@@ -62,69 +63,90 @@ class Database:
                 logger.debug("Already connected to MongoDB.")
                 return True
 
-            cls._uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+            primary_uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+            fallback_uri = os.getenv(
+                "MONGODB_FALLBACK_URI", "mongodb://localhost:27017"
+            )
             cls._db_name = db_name or os.getenv("MONGODB_DB", "netguard")
 
-            for attempt in range(1, max_retries + 1):
-                try:
-                    logger.info(
-                        "MongoDB connection attempt %d/%d...", attempt, max_retries
-                    )
+            uris = [primary_uri]
+            if fallback_uri and fallback_uri != primary_uri:
+                uris.append(fallback_uri)
 
-                    cls._client = MongoClient(
-                        cls._uri,
-                        serverSelectionTimeoutMS=10000,
-                        connectTimeoutMS=10000,
-                        socketTimeoutMS=20000,
-                        maxPoolSize=50,
-                        minPoolSize=5,
-                        retryWrites=True,
-                        retryReads=True,
-                        tls="mongodb+srv" in cls._uri or "tls=true" in cls._uri.lower(),
-                    )
-
-                    # Verify connection
-                    cls._client.admin.command("ping")
-                    cls._db = cls._client[cls._db_name]
-
-                    logger.info(
-                        "Connected to MongoDB: %s (database: %s)",
-                        (
-                            cls._uri.split("@")[-1].split("/")[0]
-                            if "@" in cls._uri
-                            else "localhost"
-                        ),
-                        cls._db_name,
-                    )
-
-                    # Create collections and indexes
-                    cls._ensure_collections()
-                    return True
-
-                except (ConnectionFailure, ServerSelectionTimeoutError) as exc:
-                    wait = 2**attempt
-                    logger.warning(
-                        "Connection attempt %d failed: %s. Retrying in %ds...",
-                        attempt,
-                        exc,
-                        wait,
-                    )
-                    if attempt < max_retries:
-                        time.sleep(wait)
-                    else:
-                        logger.error(
-                            "Failed to connect to MongoDB after %d attempts",
+            for candidate_uri in uris:
+                cls._uri = candidate_uri
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        logger.info(
+                            "MongoDB connection attempt %d/%d...",
+                            attempt,
                             max_retries,
                         )
-                        cls._client = None  # Ensure client is None on failure
-                        cls._db = None
-                        return False
 
-                except Exception as exc:
-                    logger.error("Unexpected database error during connection: %s", exc)
-                    cls._client = None  # Ensure client is None on failure
-                    cls._db = None
-                    return False
+                        cls._client = MongoClient(
+                            cls._uri,
+                            serverSelectionTimeoutMS=10000,
+                            connectTimeoutMS=10000,
+                            socketTimeoutMS=20000,
+                            maxPoolSize=50,
+                            minPoolSize=5,
+                            retryWrites=True,
+                            retryReads=True,
+                            tls="mongodb+srv" in cls._uri
+                            or "tls=true" in cls._uri.lower(),
+                        )
+
+                        cls._client.admin.command("ping")
+                        cls._db = cls._client[cls._db_name]
+
+                        logger.info(
+                            "Connected to MongoDB: %s (database: %s)",
+                            (
+                                cls._uri.split("@")[-1].split("/")[0]
+                                if "@" in cls._uri
+                                else "localhost"
+                            ),
+                            cls._db_name,
+                        )
+
+                        cls._ensure_collections()
+                        return True
+
+                    except (ConnectionFailure, ServerSelectionTimeoutError) as exc:
+                        wait = 2**attempt
+                        logger.warning(
+                            "Connection attempt %d failed: %s. Retrying in %ds...",
+                            attempt,
+                            exc,
+                            wait,
+                        )
+                        if attempt < max_retries:
+                            time.sleep(wait)
+                        else:
+                            logger.error(
+                                "Failed to connect to MongoDB after %d attempts",
+                                max_retries,
+                            )
+                            cls._client = None
+                            cls._db = None
+
+                    except ConfigurationError as exc:
+                        logger.error("MongoDB configuration error: %s", exc)
+                        cls._client = None
+                        cls._db = None
+                        break
+
+                    except Exception as exc:
+                        logger.error(
+                            "Unexpected database error during connection: %s", exc
+                        )
+                        cls._client = None
+                        cls._db = None
+                        break
+
+                logger.warning("MongoDB connection failed for URI: %s", candidate_uri)
+
+            return False
         return False
 
     @classmethod

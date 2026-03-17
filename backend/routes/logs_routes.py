@@ -11,6 +11,8 @@ def get_detection_logs():
     """Get detection logs with filtering"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         # Query parameters
         limit = request.args.get("limit", 50, type=int)
@@ -57,6 +59,8 @@ def get_threat_logs():
     """Get threat detection logs"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         limit = request.args.get("limit", 100, type=int)
         threat_type = request.args.get("threat_type")
@@ -99,6 +103,8 @@ def get_network_logs():
     """Get network discovery logs"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         limit = request.args.get("limit", 100, type=int)
         encryption = request.args.get("encryption")
@@ -132,6 +138,8 @@ def export_logs():
     """Export logs as JSON"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         export_type = request.args.get(
             "type", "detection"
@@ -174,6 +182,8 @@ def get_statistics():
     """Get statistics from logs"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         hours = request.args.get("hours", 24, type=int)
         since = datetime.utcnow() - timedelta(hours=hours)
@@ -223,6 +233,8 @@ def clear_logs():
     """Clear old logs (older than specified hours)"""
     try:
         db = Database.get_db()
+        if db is None:
+            return jsonify({"error": "Database not connected"}), 503
 
         data = request.get_json()
         hours = data.get("hours", 168)  # Default 1 week
