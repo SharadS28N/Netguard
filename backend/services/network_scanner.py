@@ -215,15 +215,13 @@ class NetworkScanner:
             print(f"Starting active scan on {interface} for {duration} seconds...")
 
             # Send probe requests
-            probe_req = (
-                scapy.Dot11(
-                    addr1="ff:ff:ff:ff:ff:ff",
-                    addr2=get_if_hwaddr(interface),
-                    addr3="ff:ff:ff:ff:ff:ff",
-                )
-                / Dot11ProbeReq()
-                / scapy.Dot11Elt(ID="SSID", info="")
+            probe_req = scapy.Dot11(
+                addr1="ff:ff:ff:ff:ff:ff",
+                addr2=get_if_hwaddr(interface),
+                addr3="ff:ff:ff:ff:ff:ff",
             )
+            probe_req = probe_req / Dot11ProbeReq()
+            probe_req = probe_req / scapy.Dot11Elt(ID="SSID", info="")
 
             def send_probes():
                 start_time = time.time()

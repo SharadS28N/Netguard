@@ -43,10 +43,12 @@ print("TEST 2: Weighted Confidence Computation")
 print("=" * 60)
 
 weights = {"signature": 0.4, "behavior": 0.3, "ml": 0.3}
-confidence = (
-    signature_score * weights["signature"]
-    + behavior_score * weights["behavior"]
-    + ml_score * weights["ml"]
+confidence = sum(
+    [
+        signature_score * weights["signature"],
+        behavior_score * weights["behavior"],
+        ml_score * weights["ml"],
+    ]
 )
 
 print(

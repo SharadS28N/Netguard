@@ -194,10 +194,9 @@ def compare_models():
             comparison["models"].append(model)
 
             # Track best models
-            if (
-                comparison["best_by_metric"]["accuracy"] is None
-                or model.get("accuracy", 0) > comparison["best_by_metric"]["accuracy"]
-            ):
+            best_accuracy = comparison["best_by_metric"]["accuracy"]
+            model_accuracy = model.get("accuracy", 0)
+            if best_accuracy is None or model_accuracy > best_accuracy:
                 comparison["best_by_metric"]["accuracy"] = model.get("model_name")
 
         return (
